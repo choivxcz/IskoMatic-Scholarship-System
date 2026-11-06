@@ -31,3 +31,10 @@ backups/
 
 # Tooling
 .kilo/
+
+# React/Tauri desktop UI build output
+node_modules/
+app/ui/desktop/dist/
+app/ui/desktop/src-tauri/target/
+app/ui/desktop/src-tauri/gen/
+*.tsbuildinfo

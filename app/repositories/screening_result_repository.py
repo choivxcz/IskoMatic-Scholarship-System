@@ -198,8 +198,6 @@ class ScreeningResultRepository:
                     "mswd_eligible"
                 )
 
-                # NEW: Retrieve the fingerprint stored in explanation JSON.
-                # Legacy records won't have this field, so their value is None.
                 row["screening_input_fingerprint"] = parsed.get(
                     "screening_input_fingerprint"
                 )

@@ -1,0 +1,239 @@
+/*
+ * Motion and micro-interactions for the whole workspace. Loaded last.
+ * Rule: entrance keyframes end at `transform: none` and use `backwards` fill,
+ * so finished animations never leave a transform behind (a lingering transform
+ * would break position: fixed dialogs inside the page).
+ */
+:root {
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --ease-spring: cubic-bezier(.2, .9, .3, 1.25);
+  --ease-in: cubic-bezier(.4, 0, .2, 1);
+}
+
+/* ---------- Workspace entrance (right after signing in) ---------- */
+@media (min-width: 1001px) { .workspace-enter .sidebar { animation: m-slide-right .55s var(--ease-out) backwards; } }
+.workspace-enter .topbar { animation: m-drop .5s .08s var(--ease-out) backwards; }
+.app-shell.is-signing-out { animation: m-fade-out .28s var(--ease-in) forwards; pointer-events: none; }
+
+/* ---------- Page transitions ---------- */
+.page-stage { animation: m-rise .42s var(--ease-out) backwards; }
+.page-stage :is(.reference-summary-card, .stat-card, .metric-summary-card, .screening-reference-metric) { animation: m-rise .5s var(--ease-out) backwards; }
+.page-stage :is(.reference-summary-card, .stat-card, .metric-summary-card, .screening-reference-metric):nth-child(1) { animation-delay: .06s; }
+.page-stage :is(.reference-summary-card, .stat-card, .metric-summary-card, .screening-reference-metric):nth-child(2) { animation-delay: .11s; }
+.page-stage :is(.reference-summary-card, .stat-card, .metric-summary-card, .screening-reference-metric):nth-child(3) { animation-delay: .16s; }
+.page-stage :is(.reference-summary-card, .stat-card, .metric-summary-card, .screening-reference-metric):nth-child(4) { animation-delay: .21s; }
+.page-stage :is(.reference-summary-card, .stat-card, .metric-summary-card, .screening-reference-metric):nth-child(n+5) { animation-delay: .26s; }
+.page-stage :is(.reference-panel, .data-panel, .screening-reference-records, .interview-table-card, .applicant-directory, .preferences-panel, .staff-access-panel) { animation: m-rise .55s .14s var(--ease-out) backwards; }
+.page-stage .reference-overview-middle > :nth-child(2) { animation-delay: .2s; }
+.page-stage .reference-overview-middle > :nth-child(3) { animation-delay: .26s; }
+.page-stage .reference-donut { animation: m-spin-in .9s .2s var(--ease-out) backwards; }
+.page-stage .overview-reference-hero, .page-stage .settings-banner { animation: m-banner .7s var(--ease-out) backwards; }
+
+/* Rows fade in whenever a table gets new data or a new page of results. */
+.app-shell tbody tr { animation: m-row .34s var(--ease-out) backwards; }
+.app-shell tbody tr:nth-child(2) { animation-delay: .03s; }
+.app-shell tbody tr:nth-child(3) { animation-delay: .06s; }
+.app-shell tbody tr:nth-child(4) { animation-delay: .09s; }
+.app-shell tbody tr:nth-child(5) { animation-delay: .12s; }
+.app-shell tbody tr:nth-child(6) { animation-delay: .15s; }
+.app-shell tbody tr:nth-child(7) { animation-delay: .18s; }
+.app-shell tbody tr:nth-child(8) { animation-delay: .21s; }
+.app-shell tbody tr:nth-child(n+9) { animation-delay: .24s; }
+.app-shell :is(.reference-task-list, .reference-activity-list, .staff-list) > * { animation: m-row .4s var(--ease-out) backwards; }
+.app-shell :is(.reference-task-list, .reference-activity-list, .staff-list) > :nth-child(2) { animation-delay: .05s; }
+.app-shell :is(.reference-task-list, .reference-activity-list, .staff-list) > :nth-child(3) { animation-delay: .1s; }
+.app-shell :is(.reference-task-list, .reference-activity-list, .staff-list) > :nth-child(n+4) { animation-delay: .15s; }
+
+/* ---------- Side panels, tabs and inline popups ---------- */
+.app-shell :is(.record-detail, .applicant-profile, .screening-reference-analysis) { animation: m-slide-left .38s var(--ease-out) backwards; }
+.app-shell :is(.tab-panel, .screening-analysis-tab, .applicant-detail-section) { animation: m-fade-up .3s var(--ease-out) backwards; }
+.app-shell :is(.screening-extra-menu, .screening-reference-help) { animation: m-menu .2s var(--ease-out) backwards; transform-origin: top right; }
+.app-shell :is(.error-banner, .notice, .data-unavailable, .empty-state, .table-loading) { animation: m-fade-up .35s var(--ease-out) backwards; }
+.app-shell .form-error { animation: m-shake-in .42s var(--ease-out); }
+.app-shell .count-up { display: inline-block; font-variant-numeric: tabular-nums; }
+.app-shell .count-placeholder { display: inline-block; animation: m-breathe 1.2s ease-in-out infinite; }
+
+/* ---------- Dialogs ---------- */
+.modal-backdrop { animation: m-fade .22s ease backwards; }
+.modal-backdrop > .modal { animation: m-pop .32s var(--ease-spring) backwards; }
+.modal-backdrop.is-closing { animation: m-fade-out .19s ease forwards; pointer-events: none; }
+.modal-backdrop.is-closing > .modal { animation: m-pop-out .19s var(--ease-in) forwards; }
+.workflow-modal .form-section { animation: m-step .32s var(--ease-out) backwards; }
+.workflow-modal .wizard-track i { transition: width .45s var(--ease-spring); }
+.modal .icon-button[aria-label^="Close"] svg { transition: transform .25s var(--ease-out); }
+.modal .icon-button[aria-label^="Close"]:hover svg { transform: rotate(90deg); }
+
+/* ---------- Toasts ---------- */
+.toast { overflow: hidden; animation: m-toast-in .42s var(--ease-spring) backwards; }
+.toast.is-closing { animation: m-toast-out .22s var(--ease-in) forwards; }
+.toast-timer { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: currentColor; opacity: .3; transform-origin: left; animation: m-timer 4.5s linear forwards; }
+
+/* ---------- Mobile navigation ---------- */
+.nav-scrim.is-visible { animation: m-fade .25s ease backwards; }
+
+/* ---------- Account menu ---------- */
+.account-menu-wrap { position: relative; }
+.account-trigger {
+  display: flex; align-items: center; gap: 9px;
+  padding: 4px 8px 4px 4px; border: 1px solid transparent; border-radius: 10px;
+  background: none; color: inherit; font: inherit; cursor: pointer; text-align: left;
+  transition: background-color .2s ease, border-color .2s ease;
+}
+.account-trigger:hover, .account-trigger.open { background: #eef5ff; border-color: #dbe6f5; }
+.account-trigger .session-label { display: flex; flex-direction: column; font-size: 12.5px; font-weight: 600; line-height: 1.25; }
+.account-trigger .session-label small { font-size: 11px; font-weight: 400; color: #667fa7; }
+.account-chevron { color: #667fa7; transition: transform .25s var(--ease-out); }
+.account-trigger.open .account-chevron { transform: rotate(180deg); }
+.account-initials {
+  position: relative; display: grid; place-items: center; flex-shrink: 0;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: linear-gradient(135deg, #115df4, #3288ff); color: #fff;
+  font-size: 11.5px; font-weight: 700; letter-spacing: .3px;
+}
+.account-initials.large { width: 42px; height: 42px; font-size: 14px; }
+.topbar-avatar.account-initials { margin-left: 0; background: linear-gradient(135deg, #115df4, #3288ff); color: #fff; }
+.presence-dot { position: absolute; right: -1px; bottom: -1px; width: 10px; height: 10px; border: 2px solid #fff; border-radius: 50%; background: #e7a04a; }
+.presence-dot.on { background: #22b45b; }
+.account-menu {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 70;
+  width: 290px; padding: 8px; border: 1px solid #dbe6f5; border-radius: 12px;
+  background: #fff; color: #14264a;
+  box-shadow: 0 18px 50px -12px rgba(9, 23, 62, .28);
+  transform-origin: top right;
+  animation: m-menu .2s var(--ease-out) backwards;
+}
+.account-menu.is-closing { animation: m-menu-out .15s var(--ease-in) forwards; }
+.account-menu-head { display: flex; gap: 11px; align-items: center; padding: 8px 8px 12px; margin-bottom: 6px; border-bottom: 1px solid #dbe6f5; }
+.account-menu-head div { display: flex; flex-direction: column; min-width: 0; }
+.account-menu-head strong { font-size: 13.5px; }
+.account-menu-head :is(small, em) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; font-style: normal; color: #667fa7; }
+.account-menu button[role="menuitem"] {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 9px 10px; border: 0; border-radius: 8px; background: none;
+  color: inherit; font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+  transition: background-color .15s ease, padding-left .2s var(--ease-out), color .15s ease;
+}
+.account-menu button[role="menuitem"]:hover, .account-menu button[role="menuitem"]:focus-visible { background: #eef5ff; padding-left: 14px; outline: 0; }
+.account-menu button[role="menuitem"].danger { color: #c92e4b; }
+.account-menu button[role="menuitem"].danger:hover { background: rgba(201, 46, 75, .08); }
+html[data-theme="dark"] .account-trigger:hover, html[data-theme="dark"] .account-trigger.open { background: #172438; border-color: #2a384d; }
+html[data-theme="dark"] .account-menu { background: #111b2b; border-color: #2a384d; color: #e2e8f0; }
+html[data-theme="dark"] .account-menu-head { border-color: #2a384d; }
+html[data-theme="dark"] .account-menu button[role="menuitem"]:hover { background: #172438; }
+html[data-theme="dark"] .presence-dot { border-color: #111b2b; }
+
+/* ---------- Staff access (Settings) ---------- */
+.app-shell .preferences-page .staff-access-panel { margin-bottom: 20px; }
+.staff-me { display: flex; align-items: center; gap: 12px; padding: 14px 0 6px; }
+.staff-me > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.staff-me strong { font-size: 14px; }
+.staff-me small { font-size: 11.5px; color: var(--secondary-ink); }
+.staff-role { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 999px; background: #eef5ff; color: #115df4; font-size: 11.5px; font-weight: 600; }
+.staff-role.admin { background: rgba(112, 72, 203, .1); color: #7048cb; }
+.staff-access-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
+.staff-access-head p { margin: 0; font-size: 12px; color: var(--secondary-ink); }
+.staff-access-tools { display: flex; align-items: center; gap: 8px; }
+.compact-segments button { min-height: 32px; padding: 4px 12px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: 12px; cursor: pointer; transition: all .2s ease; }
+.compact-segments button.active { background: var(--pale-blue); border-color: var(--blue); color: var(--blue); }
+.staff-empty { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 26px 0; color: var(--secondary-ink); font-size: 12.5px; }
+.staff-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+.staff-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
+.staff-item:hover { border-color: #b9cdf0; box-shadow: 0 8px 20px -14px rgba(9, 23, 62, .35); }
+.staff-item.status-pending { border-left: 3px solid #e7a04a; }
+.staff-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.staff-info strong { font-size: 13px; }
+.staff-info em { font-style: normal; font-weight: 400; color: var(--secondary-ink); }
+.staff-info small { font-size: 11.5px; color: var(--secondary-ink); }
+.staff-info p { margin: 6px 0 0; font-size: 12px; font-style: italic; color: var(--secondary-ink); }
+.staff-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.staff-actions select { min-height: 32px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: 12px; }
+.staff-actions :is(.primary-button, .button-secondary) { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 0 12px; font-size: 12px; }
+.staff-actions .button-secondary.danger { color: #c92e4b; }
+.staff-status { padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: #eef5ff; color: #115df4; }
+.staff-status.pending { background: rgba(231, 160, 74, .14); color: #996500; }
+.staff-status.approved { background: rgba(19, 131, 95, .1); color: #13835f; }
+.staff-status.rejected, .staff-status.disabled { background: rgba(201, 46, 75, .08); color: #c92e4b; }
+html[data-theme="dark"] .staff-item { border-color: #2a384d; }
+html[data-theme="dark"] .staff-actions select { background: #0b1422; }
+@media (max-width: 760px) { .staff-item { flex-wrap: wrap; } .staff-actions { width: 100%; justify-content: flex-start; } }
+
+/* ---------- Hover and press feedback everywhere ---------- */
+.app-shell :is(.primary-button, .button-secondary, .row-action, .icon-button, .screening-outline-button) {
+  transition: transform .16s var(--ease-out), box-shadow .22s ease, background-color .2s ease, border-color .2s ease, color .2s ease;
+}
+.app-shell .primary-button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 22px -10px rgba(17, 93, 244, .7); }
+.app-shell :is(.button-secondary, .row-action, .screening-outline-button):hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 14px -10px rgba(9, 23, 62, .45); }
+.app-shell :is(.primary-button, .button-secondary, .row-action, .icon-button, .screening-outline-button):active:not(:disabled) { transform: translateY(0) scale(.97); box-shadow: none; }
+.app-shell .icon-button:hover:not(:disabled) svg { transform: scale(1.1); }
+.app-shell .icon-button svg { transition: transform .2s var(--ease-spring); }
+
+.app-shell .nav-item { transition: background-color .2s ease, color .2s ease, padding-left .25s var(--ease-out); }
+.app-shell:not(.sidebar-collapsed) .nav-item:not(.active):hover { padding-left: 18px; }
+.app-shell .nav-item svg { transition: transform .25s var(--ease-spring); }
+.app-shell .nav-item:hover svg { transform: scale(1.12); }
+.app-shell .nav-item.active::before { animation: m-grow-y .35s var(--ease-spring); }
+.app-shell .nav-item.active svg { animation: m-pop-small .4s var(--ease-spring); }
+
+.app-shell .reference-summary-card, .app-shell .stat-card, .app-shell .metric-summary-card, .app-shell .screening-reference-metric {
+  transition: transform .25s var(--ease-out), box-shadow .25s ease, border-color .25s ease, background-color .2s ease;
+}
+.app-shell .reference-summary-card:hover, .app-shell .stat-card:hover, .app-shell .metric-summary-card:hover, .app-shell .screening-reference-metric:hover {
+  transform: translateY(-3px);
+  border-color: #b9cdf0;
+  box-shadow: 0 16px 30px -18px rgba(17, 93, 244, .45);
+}
+.app-shell .reference-summary-card:active { transform: translateY(-1px) scale(.99); }
+.app-shell .reference-summary-card :is(.reference-icon, .summary-chevron) { transition: transform .3s var(--ease-spring); }
+.app-shell .reference-summary-card:hover .reference-icon { transform: rotate(-6deg) scale(1.06); }
+.app-shell .reference-summary-card:hover .summary-chevron { transform: translateX(4px); }
+.app-shell :is(.reference-task-list, .reference-activity-list) > button { transition: background-color .2s ease, transform .2s var(--ease-out); }
+.app-shell :is(.reference-task-list, .reference-activity-list) > button:hover:not(:disabled) { transform: translateX(3px); }
+
+/* Cursor-following glow on cards (set by installInteractions). */
+.app-shell .is-glowing:is(.panel, .reference-panel, .reference-summary-card, .stat-card, .metric-summary-card, .screening-reference-metric, .screening-reference-records, .interview-table-card) {
+  background-image: radial-gradient(360px circle at var(--glow-x) var(--glow-y), rgba(17, 93, 244, .055), transparent 70%);
+}
+
+.app-shell tbody tr { transition: background-color .15s ease; }
+.app-shell :is(input, select, textarea) { transition: border-color .2s ease, box-shadow .25s ease, background-color .2s ease; }
+.app-shell .detail-tabs button, .app-shell .screening-reference-tabs button { transition: color .2s ease, background-color .2s ease, box-shadow .25s var(--ease-out); }
+
+/* Press ripple (elements created by installInteractions). */
+.ripple-host { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; pointer-events: none; z-index: 0; }
+.ripple { position: absolute; border-radius: 50%; background: currentColor; opacity: .18; transform: scale(0); animation: m-ripple .6s var(--ease-out) forwards; }
+:is(.primary-button, .auth-submit) .ripple { background: #fff; opacity: .35; }
+
+/* Shared shake for invalid submissions. */
+.shake { animation: m-shake .44s cubic-bezier(.36, .07, .19, .97); }
+
+/* ---------- Keyframes ---------- */
+@keyframes m-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes m-fade-out { to { opacity: 0; } }
+@keyframes m-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes m-fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes m-row { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes m-drop { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
+@keyframes m-slide-right { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: none; } }
+@keyframes m-slide-left { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
+@keyframes m-pop { from { opacity: 0; transform: translateY(14px) scale(.95); } to { opacity: 1; transform: none; } }
+@keyframes m-pop-out { to { opacity: 0; transform: translateY(10px) scale(.96); } }
+@keyframes m-menu { from { opacity: 0; transform: translateY(-6px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes m-menu-out { to { opacity: 0; transform: translateY(-6px) scale(.97); } }
+@keyframes m-step { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+@keyframes m-toast-in { from { opacity: 0; transform: translateY(24px) scale(.94); } to { opacity: 1; transform: none; } }
+@keyframes m-toast-out { to { opacity: 0; transform: translateX(30px); } }
+@keyframes m-timer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@keyframes m-banner { from { opacity: 0; transform: scale(.985); filter: saturate(.6); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes m-spin-in { from { opacity: 0; transform: rotate(-90deg) scale(.85); } to { opacity: 1; transform: none; } }
+@keyframes m-grow-y { from { transform: scaleY(0); } to { transform: none; } }
+@keyframes m-pop-small { 0% { transform: scale(.8); } 60% { transform: scale(1.15); } 100% { transform: none; } }
+@keyframes m-breathe { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+@keyframes m-ripple { to { transform: scale(1); opacity: 0; } }
+@keyframes m-shake { 10%, 90% { transform: translateX(-1px); } 20%, 80% { transform: translateX(3px); } 30%, 50%, 70% { transform: translateX(-6px); } 40%, 60% { transform: translateX(6px); } 100% { transform: none; } }
+@keyframes m-shake-in { 0% { opacity: 0; transform: translateX(0); } 25% { opacity: 1; transform: translateX(-5px); } 50% { transform: translateX(4px); } 75% { transform: translateX(-2px); } 100% { transform: none; } }
+
+/* Respect the system "reduce motion" setting. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  .ripple-host { display: none; }
+}

@@ -1,0 +1,143 @@
+/* Final shared municipal controls. Page files own content and workflow layout. */
+
+.app-shell, .auth-shell, .app-shell :is(.applicants-page, .reference-overview, .screening-reference-page, .interviews-page) {
+  font-family: "Iskolar Inter", Inter, "Segoe UI", sans-serif;
+}
+.app-shell :is(.page-content, .panel, .reference-panel, .interview-table-card, .screening-reference-records) { min-width: 0; }
+.app-shell .page-content { padding: var(--page-inset); }
+.app-shell, .auth-shell { font-size: 13px; line-height: 1.45; }
+.app-shell .sidebar { overflow-y: auto; scrollbar-width: thin; scrollbar-color: #667fa7 #061f4e; }
+.app-shell .sidebar .nav-item:hover:not(.active) { background: #052968; color: #fff; }
+.app-shell .sidebar .nav-item.active { background: #115df4; }
+.app-shell .nav-new { display: none; }
+.app-shell .overview-reference-hero h2 { color: #fff; }
+.app-shell :is(.primary-button, .button-secondary, .screening-outline-button) {
+  min-height: var(--control-height);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+  box-shadow: none;
+  text-decoration: none;
+}
+.app-shell .primary-button { background: #115df4; color: #fff; }
+.app-shell .primary-button:hover:not(:disabled) { background: #094dcc; }
+.app-shell :is(.button-secondary, .screening-outline-button):hover:not(:disabled) { background: #eef5ff; border-color: #9dbbe9; }
+:is(.app-shell, .auth-shell) button:disabled { cursor: not-allowed; }
+.app-shell .primary-button:disabled { background: #dbe6f5; color: #536d94; opacity: 1; }
+.app-shell .icon-button { min-width: 32px; min-height: 32px; }
+.app-shell :is(input:not([type="checkbox"]), select, .search-box, .interview-search, .screening-reference-search) { min-height: var(--control-height); }
+.app-shell :is(input, select, textarea) { accent-color: #115df4; font-size: 13px; }
+.app-shell :is(.search-box input, .interview-search input, .screening-reference-search input, .applicant-filters select, .screening-reference-filters select, .interview-filter-controls select) { font-size: 13px; }
+.app-shell :is(input, textarea)::placeholder { color: var(--secondary-ink); opacity: 1; }
+.app-shell :is(.applicant-filters, .filter-bar, .screening-reference-filters) { flex-wrap: wrap; }
+.app-shell :is(.applicant-filters, .screening-reference-filters) > select { min-width: 130px; flex: 1 1 130px; }
+.app-shell :is(.applicant-table-scroll, .screening-reference-table-scroll, .interview-table-scroll, .table-scroll) {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #a4bee7 #f4f8fe;
+}
+.app-shell :is(.applicant-table, .overview-recent-table, .screening-reference-table, .interview-table) td {
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  padding: 8px 10px;
+}
+.app-shell :is(.applicant-table, .overview-recent-table, .screening-reference-table, .interview-table) th {
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--secondary-ink);
+}
+.app-shell :is(.applicant-table td strong, .applicant-id, .applicant-view, .application-status, .screening-reference-state, .screening-recommendation, .interview-badge) { font-size: 13px; }
+.app-shell :is(.applicant-table td small, .overview-recent-table small, .screening-reference-table small) { font-size: 11px; color: var(--secondary-ink); }
+.app-shell :is(.applicants-page p, .screening-reference-page p, .reference-panel p, .settings-grid p, .interview-table-card p, .footer) { color: var(--secondary-ink); }
+.app-shell [tabindex]:focus-visible { outline: 3px solid #3288ff; outline-offset: 3px; }
+.app-shell :is(.applicant-tabs, .screening-reference-tabs, .settings-tabs) button { min-height: 36px; font-size: 12px; }
+.app-shell :is(.applicant-tabs, .screening-reference-tabs, .settings-tabs) button:not(.active) { color: var(--secondary-ink); }
+.app-shell .reference-summary-card { padding: 12px 14px; gap: 12px; }
+.app-shell :is(.stat-value, .reference-summary-text > b, .screening-reference-metric strong) { font-family: inherit; font-size: 28px; font-weight: 700; line-height: 1.1; }
+.app-shell :is(.reference-panel, .applicants-page .panel, .interview-table-card, .settings-grid .panel) { padding: var(--panel-inset); }
+.app-shell :is(.reference-overview-middle, .reference-overview-bottom, .applicant-directory-layout, .screening-reference-layout, .settings-grid) { gap: var(--section-gap); }
+.app-shell :is(.overview-advisory, .decision-authority, .screening-reference-advisory, .interview-guidance, .interview-table-card) { margin-bottom: var(--section-gap); }
+.app-shell :is(.reference-empty, .applicant-empty, .interview-empty) { min-height: 64px; padding: 20px 14px; }
+.app-shell .footer { margin-top: 16px; padding-top: 12px; padding-bottom: 12px; }
+.app-shell :is(.reference-panel-heading h2, .applicants-page h2, .screening-reference-toolbar h2, .interview-card-title h2, .settings-grid .panel h3) { font-size: 15px; line-height: 1.35; }
+.app-shell .settings-banner { padding: 16px 18px; margin-bottom: var(--section-gap); }
+.app-shell .settings-banner h2 { font-size: 28px; }
+.app-shell .settings-grid > div { gap: var(--section-gap); }
+.app-shell .reference-summary-card:hover { transform: none; background: #f4f8fe; }
+.app-shell .interview-card-toolbar { flex-wrap: wrap; gap: 12px; }
+.app-shell .interview-filter-controls { flex: 1 1 580px; flex-wrap: wrap; }
+.app-shell .interview-search { flex: 1 1 260px; min-width: 180px; }
+.app-shell .interview-table { min-width: 1100px; }
+.app-shell .settings-grid { align-items: start; }
+.app-shell .settings-grid .panel { padding: var(--panel-inset); }
+.settings-grid .notice { margin: 12px 0; }
+.staff-request-fields, .workflow-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.staff-request-fields .field-label { margin: 0 0 14px; }
+.staff-request-fields .form-grid { gap: 0 12px; }
+.app-shell .staff-request-fields input:disabled { background: #f4f8fe; color: var(--secondary-ink); opacity: 1; }
+.app-shell .workflow-fields { padding: 0 24px; }
+.app-shell .workflow-fields:disabled { opacity: .75; }
+.app-shell .modal { max-height: calc(100svh - 40px); }
+.app-shell .modal-head { gap: 16px; }
+.app-shell .modal-head h2 { font-size: 22px; }
+.app-shell .modal-head p { max-width: 70ch; line-height: 1.5; }
+.app-shell .form-error { flex-shrink: 0; }
+.app-shell .data-unavailable { padding: 24px; border: 1px solid #dbe6f5; background: #fff; border-radius: 12px; }
+.app-shell .data-unavailable h2 { font-size: 18px; margin: 0 0 8px; }
+.app-shell .data-unavailable p { color: var(--secondary-ink); font-size: 13px; max-width: 70ch; line-height: 1.5; }
+.app-shell .toast { max-width: min(560px, calc(100vw - 32px)); line-height: 1.5; }
+.auth-shell .auth-form h1 { font-size: 28px; line-height: 1.2; letter-spacing: -.7px; margin: 0 0 8px; }
+.auth-shell .auth-form h1 + p { margin-bottom: 20px; }
+.auth-shell .auth-form a { color: #115df4; text-underline-offset: 3px; }
+.auth-shell .auth-unavailable { background: #eef5ff; border: 1px solid #dbe6f5; color: #14264a; border-radius: 6px; padding: 12px; font-size: 12px; line-height: 1.5; margin: 16px 0; }
+.auth-shell .auth-form .auth-switch { color: var(--secondary-ink); }
+.auth-shell .auth-form > p, .auth-shell .auth-staff-notice p { color: #536d94; }
+.auth-shell .auth-form.registration { display: block; }
+.auth-shell .registration .auth-staff-notice { margin-bottom: 16px; }
+.auth-shell .registration .staff-request-fields { margin: 20px 0 8px; }
+.auth-shell .registration .field-label { font-size: 12px; }
+.auth-shell .registration input:disabled { background: #eef5ff; color: var(--secondary-ink); opacity: 1; }
+.auth-shell .auth-form > .primary-button:disabled { background: #dbe6f5; color: #536d94; opacity: 1; }
+.auth-shell .auth-brand .official-logos img, .app-shell .brand .official-logos img { object-fit: contain; background: transparent; padding: 0; filter: none; border: 0; box-shadow: none; }
+@media (min-width: 1001px) {
+  .app-shell.screening-reference-shell .sidebar { width: 252px; }
+  .app-shell.screening-reference-shell .main-area { margin-left: 252px; }
+  .app-shell.screening-reference-shell.sidebar-collapsed .sidebar { width: 80px; }
+  .app-shell.screening-reference-shell.sidebar-collapsed .main-area { margin-left: 80px; }
+}
+@media (min-width: 1001px) and (max-width: 1200px) {
+  .applicants-page .applicant-directory-layout.with-profile, .screening-reference-shell .screening-reference-layout.has-analysis { grid-template-columns: minmax(0, 1fr); }
+  .app-shell .reference-overview-middle { grid-template-columns: minmax(200px, .8fr) minmax(0, 1.8fr); }
+  .app-shell .reference-tasks-panel { grid-column: 1 / -1; }
+  .app-shell .reference-task-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 24px; }
+}
+@media (min-width: 1201px) {
+  .applicants-page .applicant-directory-layout.with-profile, .screening-reference-shell .screening-reference-layout.has-analysis { grid-template-columns: minmax(0, 1fr) 320px; }
+  .app-shell .reference-overview-middle { grid-template-columns: 200px minmax(0, 1fr) 240px; }
+  .app-shell .reference-tasks-panel { grid-column: auto; }
+  .app-shell .reference-task-list { display: block; }
+}
+@media (max-width: 1000px) {
+  .app-shell.screening-reference-shell .main-area { margin-left: 0; }
+  .app-shell .page-content { padding: 20px; }
+}
+@media (max-width: 700px) {
+  .app-shell .page-content { padding: 18px 14px; }
+  .app-shell .topbar-actions { gap: 6px; }
+  .app-shell .academic-year { display: none; }
+  .app-shell .reference-task-list { display: block; }
+  .app-shell .workflow-fields { padding: 0 16px; }
+  .auth-shell .auth-form h1 { font-size: 28px; }
+  .auth-shell .staff-request-fields .form-grid { grid-template-columns: minmax(0, 1fr); }
+}
+html[data-theme="dark"] { --secondary-ink: #a7b6ca; }
+html[data-theme="dark"] .app-shell .staff-request-fields input:disabled { background: #0b1422; color: #a7b6ca; }
+html[data-theme="dark"] .app-shell .reference-summary-card:hover { background: #172438; }
+html[data-theme="dark"] .app-shell .primary-button:disabled { background: #273b56; color: #b7c6d9; }
+
+/* Compact pagination stays usable when the table is in a split view. */

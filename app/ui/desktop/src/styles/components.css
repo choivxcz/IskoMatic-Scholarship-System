@@ -1,0 +1,82 @@
+/* Shared components own their appearance; page CSS owns only their placement. */
+.workspace-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 var(--section-gap);
+}
+.workspace-page-title { min-width: 0; }
+.workspace-page-header h1 { margin: 0 0 4px; font: 700 28px/1.2 "Iskolar Inter", Inter, "Segoe UI", sans-serif; letter-spacing: -.7px; }
+.workspace-page-header .workspace-page-title p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--secondary-ink); }
+.workspace-page-actions { display: flex; flex-wrap: wrap; gap: 8px; flex-shrink: 0; }
+.workspace-page-header.has-banner { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
+.workspace-page-header .overview-reference-hero { min-height: 88px; height: auto; }
+.workspace-page-actions .primary-button { padding: 8px 14px; gap: 8px; }
+.record-pagination { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px 16px; padding: 10px 0; color: var(--secondary-ink); font-size: 11px; }
+.record-pagination-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.record-pagination label { display: inline-flex; align-items: center; gap: 8px; margin-right: 8px; white-space: nowrap; }
+.record-pagination select { width: auto; min-width: 60px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface, #fff); color: inherit; }
+.record-pagination button { display: inline-flex; justify-content: center; align-items: center; min-width: 32px; min-height: 32px; padding: 4px 6px; border: 0; border-radius: 5px; background: transparent; color: #14264a; font: inherit; }
+.record-pagination button:hover:not(:disabled) { background: #eef5ff; }
+.record-pagination button[aria-current="page"] { background: #115df4; color: #fff; }
+.record-pagination button:disabled { opacity: .45; }
+.record-page-number { display: inline-flex; align-items: center; }
+.record-page-gap { padding: 0 4px; }
+.app-shell .applicant-profile-head .icon-button { min-width: 32px; min-height: 32px; }
+.metric-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--section-gap); margin-bottom: var(--section-gap); }
+.metric-summary-card { display: grid; grid-template-columns: 36px minmax(0, 1fr); align-content: start; gap: 2px 12px; min-height: 84px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.metric-summary-icon { grid-row: 1 / 4; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 8px; background: #eef5ff; color: #115df4; }
+.metric-summary-icon.green { color: #00865f; background: #e7f7f0; }
+.metric-summary-icon.amber { color: #996500; background: #fff5db; }
+.metric-summary-icon.red { color: #c92e4b; background: #fff0f1; }
+.metric-summary-label { font-size: 12px; color: var(--secondary-ink); }
+.metric-summary-value { font-size: 28px; line-height: 1.1; font-weight: 700; overflow-wrap: anywhere; }
+.metric-summary-note { font-size: 11px; line-height: 1.4; color: var(--secondary-ink); }
+html[data-theme="dark"] .metric-summary-card { background: #111b2b; }
+html[data-theme="dark"] .workspace-page-header h1,
+html[data-theme="dark"] .record-pagination button { color: #e2e8f0; }
+html[data-theme="dark"] .record-pagination button:hover:not(:disabled) { background: #172438; }
+html[data-theme="dark"] .record-pagination button[aria-current="page"] { background: #115df4; color: #fff; }
+@media (max-width: 700px) {
+  .metric-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .metric-summary-card { padding: 12px; gap: 2px 8px; }
+  .workspace-page-header, .workspace-page-header.has-banner { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
+  .workspace-page-header h1 { font-size: 28px; }
+  .workspace-page-actions { flex-shrink: 1; }
+}
+@media (pointer: coarse) { .record-pagination button { min-width: 44px; min-height: 44px; } }
+
+/* Alpha-based outlines follow the official artwork, never the image rectangle. */
+:is(.app-shell .brand, .auth-shell .auth-brand) .official-logos img {
+  box-sizing: border-box;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  object-fit: contain;
+  filter: drop-shadow(1px 0 0 #d9e7fa) drop-shadow(-1px 0 0 #d9e7fa) drop-shadow(0 1px 0 #d9e7fa) drop-shadow(0 -1px 0 #d9e7fa);
+  box-shadow: none;
+}
+
+/* Retain municipal identity in the narrow navigation rail on every page. */
+.app-shell.sidebar-collapsed .sidebar .brand { display: block; padding: 0; margin: 0 0 18px; border: 0; }
+.app-shell.sidebar-collapsed .sidebar .brand :is(.brand-name, .brand-sub) { display: none; }
+.app-shell.sidebar-collapsed .sidebar .brand .official-logos { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; margin: 0; }
+.app-shell.sidebar-collapsed .sidebar .brand .official-logos img { width: 44px; height: 44px; flex: 0 0 44px; object-fit: contain; background: transparent; border: 0; border-radius: 0; padding: 0; box-sizing: border-box; }
+.app-shell.sidebar-collapsed .sidebar :is(.nav-item, .account-link) { justify-content: center; padding-left: 0; padding-right: 0; gap: 0; }
+.app-shell.sidebar-collapsed .sidebar :is(.nav-item, .account-link) > svg { flex-shrink: 0; }
+.app-shell.sidebar-collapsed .sidebar .account-link svg { transform: rotate(180deg); }
+
+/* Dark selection should remain close to the surrounding table surface. */
+html[data-theme="dark"] .app-shell :is(.screening-reference-table tr.selected td, .screening-reference-table tr:hover td, tr[aria-selected="true"] td) { background: #1b304a; color: #dbe7f6; }
+html[data-theme="dark"] .app-shell .screening-reference-table :is(time, .screening-more-button, .screening-reference-id) { color: #b5d2ff; }
+html[data-theme="dark"] .app-shell .screening-advisory-recommendation { background: #25233d; border-color: #4b4267; }
+html[data-theme="dark"] .app-shell .screening-advisory-recommendation :is(h3, p, small) { color: #d8d1ef; }
+html[data-theme="dark"] .app-shell .screening-analysis-tab dd { color: #dbe7f6; }
+html[data-theme="dark"] .app-shell .screening-analysis-tab dt { color: #a7b6ca; }
+html[data-theme="dark"] .app-shell :is(.screening-outline-button, .screening-reference-export, .screening-reference-refresh) { background: #172438; color: #b5d2ff; border-color: #34445b; }
+html[data-theme="dark"] .app-shell .screening-outline-button:disabled { background: #1b2b41; color: #a7b6ca; }
+html[data-theme="dark"] .app-shell .screening-reference-tabs button.active { background: #1b304a; color: #b5d2ff; }
+html[data-theme="dark"] .app-shell .screening-reference-search { background: #0b1422; color: #a7b6ca; border-color: #34445b; }
+html[data-theme="dark"] .app-shell .screening-reference-search input { background: transparent !important; }

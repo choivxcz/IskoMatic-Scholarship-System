@@ -1,0 +1,50 @@
+/* Settings follows the shared municipal workspace at every route. */
+.app-shell .brand-name { font-family: "Iskolar Inter", Inter, "Segoe UI", sans-serif; font-weight: 700; }
+.app-shell .preferences-page { color: var(--navy); }
+.app-shell .preferences-page .settings-banner { padding: 22px 20px; margin-bottom: 20px; }
+.preferences-page .settings-banner h1 { margin: 0 0 4px; font-size: 28px; line-height: 1.2; color: #fff; }
+.app-shell .preferences-page .settings-banner p { margin: 0; color: #fff; font-size: 12px; }
+.preferences-heading { margin-bottom: 18px; }
+.preferences-heading h2, .app-shell .preferences-panel h2 { margin: 0 0 5px; font-size: 15px; font-weight: 600; line-height: 1.4; }
+.preferences-heading p, .preferences-panel header p { margin: 0; font-size: 12px; color: var(--secondary-ink); }
+.app-shell .preferences-page .settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+.app-shell .preferences-page .preferences-panel { margin: 0; padding: 20px 18px; border: 1px solid var(--line); border-radius: 12px; box-shadow: none; min-width: 0; }
+.preferences-panel header { padding-bottom: 18px; margin-bottom: 8px; border-bottom: 1px solid var(--line); }
+.app-shell .preferences-page .preference-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border: 0; font-size: 12px; line-height: 1.4; }
+.preferences-page .preference-row small { display: block; margin-top: 2px; font-size: 11px; color: var(--secondary-ink); }
+.preferences-page .preference-switch { appearance: none; flex: 0 0 32px; width: 32px; height: 18px; margin: 0; border: 0; border-radius: 16px; background: #dbe6f5; opacity: 1; }
+.preferences-page .preference-switch::before { content: ""; display: block; width: 12px; height: 12px; border-radius: 50%; margin: 3px; background: #fff; }
+.preferences-notice { display: flex; align-items: flex-start; gap: 10px; background: var(--pale-blue); border: 1px solid var(--line); border-radius: 6px; padding: 12px; margin-top: 8px; font-size: 11px; line-height: 1.6; }
+.preferences-notice svg { flex-shrink: 0; color: var(--blue); }
+.preference-choice { border: 0; margin: 18px 0; padding: 0; min-width: 0; }
+.preference-choice legend, .preference-form-grid label { font-size: 11px; font-weight: 600; }
+.preference-choice legend { margin-bottom: 8px; }
+.preference-segments { display: flex; gap: 8px; }
+.preference-segments label { position: relative; flex: 1; min-width: 0; }
+.preference-segments input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.preference-segments span { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 38px; padding: 6px; border: 1px solid var(--line); border-radius: 6px; font-size: 11px; cursor: pointer; }
+.preference-segments input:checked + span { background: var(--pale-blue); border-color: var(--blue); color: var(--blue); }
+.preference-segments input:focus-visible + span { outline: 2px solid var(--blue); outline-offset: 3px; }
+.preference-segments span:hover { border-color: var(--blue); }
+.preference-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 12px; }
+.preference-form-grid label { display: grid; gap: 7px; min-width: 0; }
+.app-shell .preference-form-grid select { width: 100%; min-width: 0; min-height: 38px; border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; background: #fff; color: inherit; font-family: inherit; font-size: 12px; font-weight: 400; }
+.preference-form-grid select:disabled { opacity: .75; cursor: default; }
+.app-shell .preferences-panel .preferences-footnote { margin: 18px 0 0; font-size: 11px; line-height: 1.5; color: var(--secondary-ink); }
+.preferences-footer { display: flex; justify-content: space-between; align-items: center; gap: 20px; border-top: 1px solid var(--line); margin-top: 20px; padding-top: 16px; }
+.preferences-footer p { margin: 0; font-size: 11px; color: var(--secondary-ink); }
+.preferences-footer > div { display: flex; gap: 12px; flex-shrink: 0; }
+.preferences-footer button { min-height: 38px; font-size: 12px; }
+html[data-theme="dark"] .app-shell .preferences-page { color: #e2e8f0; }
+html[data-theme="dark"] .preferences-page { --line: #34445b; --pale-blue: #172b47; }
+html[data-theme="dark"] .preferences-page .preferences-notice { color: #d7e2f0; }
+html[data-theme="dark"] .preferences-page .preference-segments input:checked + span { color: #a8caff; border-color: #6ba4ff; }
+html[data-theme="dark"] .preferences-page .settings-banner :is(h1,p) { color: #fff; }
+@media (max-width: 1050px) { .app-shell .preferences-page .settings-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 600px) { .preference-form-grid { grid-template-columns: minmax(0, 1fr); } .preferences-footer { align-items: stretch; flex-direction: column; } .preferences-footer > div { flex-wrap: wrap; } }
+
+/* Keep the full radio label clickable despite shared form input rules. */
+.app-shell .preferences-page .preference-segments input[type="radio"] { width: 1px; height: 1px; min-height: 0; padding: 0; margin: 0; pointer-events: none; }
+.app-shell .preference-form-grid input[readonly] { min-width: 0; width: 100%; min-height: 38px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; font: inherit; }
+html[data-theme="dark"] .app-shell .preference-form-grid :is(input, select) { background: #0b1422; color: #e2e8f0; border-color: #34445b; }
+html[data-density="compact"] .app-shell :is(table td, table th) { padding-top: 6px !important; padding-bottom: 6px !important; }

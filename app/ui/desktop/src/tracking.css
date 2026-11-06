@@ -1,0 +1,73 @@
+/* Staff accountability: "approved by" stamps, interview trail, activity-by-staff cards. */
+.staff-stamp { display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; vertical-align: middle; }
+.staff-stamp.empty { color: #8192ae; font-size: 12px; font-style: italic; }
+.staff-stamp-avatar {
+  display: inline-grid; place-items: center; flex-shrink: 0;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: #e6efff; color: #115df4; font-size: 10.5px; font-weight: 700; letter-spacing: .3px;
+}
+.staff-stamp-avatar.admin { background: linear-gradient(135deg, #7048cb, #9b7bff); color: #fff; }
+.staff-stamp-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.staff-stamp-text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; font-weight: 600; }
+.staff-stamp-text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: #667fa7; }
+
+/* Interview details: who approved, scheduled, recorded the result, decided. */
+.approval-trail { margin: 16px 0 6px; padding: 14px 16px; border: 1px solid #dbe6f5; border-radius: 10px; background: #f8fbff; }
+.approval-trail h3 { margin: 0 0 10px; font-size: 13px; font-weight: 600; }
+.approval-trail ol { position: relative; margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+.approval-trail li { position: relative; display: grid; grid-template-columns: 150px minmax(0, 1fr); align-items: center; gap: 10px; padding-left: 20px; font-size: 12px; color: #536d94; animation: m-fade-up .35s var(--ease-out, ease) backwards; }
+.approval-trail li:nth-child(2) { animation-delay: .06s; }
+.approval-trail li:nth-child(3) { animation-delay: .12s; }
+.approval-trail li:nth-child(4) { animation-delay: .18s; }
+.approval-trail li::before { content: ""; position: absolute; left: 0; top: 50%; width: 10px; height: 10px; margin-top: -5px; border: 2px solid #c5d4ec; border-radius: 50%; background: #fff; }
+.approval-trail li:not(:last-child)::after { content: ""; position: absolute; left: 5px; top: calc(50% + 7px); height: calc(100% + 2px); border-left: 2px dashed #dbe6f5; }
+.approval-trail li.done::before { border-color: #13835f; background: #13835f; box-shadow: 0 0 0 3px rgba(19, 131, 95, .15); }
+.approval-trail li.done:not(:last-child)::after { border-left-style: solid; border-color: rgba(19, 131, 95, .35); }
+
+/* Activity log: one card per staff member. */
+.staff-activity-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; margin: 14px 0 16px; }
+.staff-activity-card {
+  display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 4px 10px; align-items: center;
+  padding: 12px; border: 1px solid #dbe6f5; border-radius: 10px; background: #fff;
+  color: inherit; font: inherit; text-align: left; cursor: pointer;
+  transition: border-color .2s ease, box-shadow .25s ease, transform .2s ease, background-color .2s ease;
+}
+.staff-activity-card:hover { transform: translateY(-2px); border-color: #b9cdf0; box-shadow: 0 12px 24px -16px rgba(17, 93, 244, .5); }
+.staff-activity-card.active { border-color: #115df4; background: #eef5ff; box-shadow: 0 0 0 3px rgba(17, 93, 244, .12); }
+.staff-activity-card .staff-stamp-avatar { width: 34px; height: 34px; font-size: 12px; }
+.staff-activity-who { display: flex; flex-direction: column; min-width: 0; }
+.staff-activity-who strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.staff-activity-who small { font-size: 11px; color: #667fa7; }
+.staff-activity-counts { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 6px; padding-top: 8px; border-top: 1px solid #e6eef9; }
+.staff-activity-counts span { display: flex; flex-direction: column; align-items: center; font-size: 10.5px; color: #667fa7; }
+.staff-activity-counts b { font-size: 15px; font-weight: 700; color: #14264a; font-variant-numeric: tabular-nums; }
+.staff-filter-note { margin: 0 0 12px; padding: 9px 12px; border-radius: 8px; background: #eef5ff; color: #14264a; font-size: 12px; animation: m-fade-up .3s ease backwards; }
+
+.activity-person { display: flex; flex-direction: column; align-items: flex-start; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.activity-person strong { font-size: 12.5px; font-weight: 600; }
+.activity-person:hover strong { color: #115df4; text-decoration: underline; text-underline-offset: 2px; }
+.activity-person small, .activity-muted small { display: block; font-size: 11px; color: #667fa7; }
+.activity-muted { color: #667fa7; }
+.activity-action { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 600; background: #eef5ff; color: #115df4; white-space: nowrap; }
+.activity-action.interview { background: rgba(112, 72, 203, .1); color: #7048cb; }
+.activity-action.decision { background: rgba(19, 131, 95, .1); color: #13835f; }
+.activity-action.account { background: #f1f4f9; color: #536d94; }
+.activity-action.danger { background: rgba(201, 46, 75, .08); color: #c92e4b; }
+.activity-outcome { display: inline-block; margin-left: 6px; padding: 2px 6px; border-radius: 6px; font-size: 10.5px; font-weight: 600; }
+.activity-outcome.failed { background: rgba(201, 46, 75, .1); color: #c92e4b; }
+.activity-outcome.started { background: rgba(231, 160, 74, .14); color: #996500; }
+
+html[data-theme="dark"] .staff-stamp-text small, html[data-theme="dark"] .staff-activity-who small, html[data-theme="dark"] .activity-person small { color: #9aaac0; }
+html[data-theme="dark"] .staff-stamp-avatar:not(.admin) { background: #172b47; color: #8fb8ff; }
+html[data-theme="dark"] .approval-trail { background: #0f1a2b; border-color: #2a384d; }
+html[data-theme="dark"] .approval-trail li::before { background: #0f1a2b; border-color: #34445b; }
+html[data-theme="dark"] .staff-activity-card { background: #111b2b; border-color: #2a384d; }
+html[data-theme="dark"] .staff-activity-card.active, html[data-theme="dark"] .staff-filter-note { background: #172b47; color: #e2e8f0; }
+html[data-theme="dark"] .staff-activity-counts { border-color: #2a384d; }
+html[data-theme="dark"] .staff-activity-counts b { color: #e2e8f0; }
+@media (max-width: 640px) { .approval-trail li { grid-template-columns: minmax(0, 1fr); gap: 4px; } }
+
+/* Keep status/result pills on one line now that the table has an "Approved by" column. */
+.interview-table .interview-badge { white-space: nowrap; }
+.interview-table .staff-stamp-text strong { max-width: 140px; }
+.activity-outcome.recovered { background: #eef5ff; color: #536d94; }
