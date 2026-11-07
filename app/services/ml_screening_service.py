@@ -13,6 +13,8 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import train_test_split
 
+from app.services.ml_explainer import explain_prediction
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 DEFAULT_CSV = PROJECT_ROOT / "isko.csv"
@@ -437,6 +439,10 @@ def evaluate_applicant(model, applicant):
         probabilities.get(1, 0.0)
     ) * 100
 
+    # Why the model leaned this way: per-feature contributions that add up
+    # exactly to `probability` (see ml_explainer.py).
+    model_explanation = explain_prediction(model, row, FEATURES)
+
     reasons = []
     
     if not exam_passed:
@@ -491,6 +497,9 @@ def evaluate_applicant(model, applicant):
         "mswd_threshold": threshold,
         "mswd_eligible": bool(mswd_eligible),
         "reasons": reasons,
+        "base_rate_percent": model_explanation["baseline_percent"],
+        "feature_contributions": model_explanation["contributions"],
+        "ai_reasons": model_explanation["summary"],
         "passing_rate": None,
         "requires_human_review": True,
     }

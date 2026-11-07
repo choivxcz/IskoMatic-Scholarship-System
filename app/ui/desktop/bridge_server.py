@@ -31,6 +31,7 @@ from app.repositories.scholarship_decision_repository import (
 from app.repositories.screening_result_repository import ScreeningResultRepository
 from app.services.application_service import ApplicationService
 from app.services.screening_persistence_service import ScreeningPersistenceService
+from app.services.ml_screening_service import evaluate_applicant
 from database.connection import get_connection
 from app.ui.desktop import activity_store, auth_store
 
@@ -97,6 +98,70 @@ def read_screening_service():
         _screening_service = ScreeningPersistenceService()
 
     return _screening_service
+
+
+def ai_explanation(application_id):
+    """Live, read-only AI analysis of an application plus its latest saved screening.
+
+    Nothing is saved: this explains what the model thinks of the application's
+    current data. "Run screening" is still the action that records a result.
+    """
+    application = ApplicationRepository.get_by_id(application_id)
+    if not application:
+        return 404, {"error": "Application not found."}
+
+    service = read_screening_service()
+    inputs = application_screening_inputs(application)
+    try:
+        result = evaluate_applicant(service.model, inputs)
+    except ValueError as exc:
+        return 200, {"available": False, "error": f"The AI cannot analyse this application yet: {exc}"}
+
+    connection = get_connection()
+    try:
+        with connection.cursor(dictionary=True) as cursor:
+            cursor.execute(
+                "SELECT screening_id, predicted_class, confidence_score, explanation, screened_at "
+                "FROM screening_results WHERE application_id = %s "
+                "ORDER BY screened_at DESC, screening_id DESC LIMIT 1",
+                (application_id,),
+            )
+            latest = cursor.fetchone()
+    finally:
+        connection.close()
+
+    saved = None
+    if latest:
+        try:
+            details = json.loads(latest["explanation"] or "{}")
+        except (TypeError, ValueError):
+            details = {}
+        saved = {
+            "screening_id": latest["screening_id"],
+            "screened_at": latest["screened_at"],
+            "recommendation": latest["predicted_class"],
+            "probability_percent": round(float(latest["confidence_score"] or 0) * 100, 2),
+            "fingerprint": details.get("screening_input_fingerprint"),
+        }
+
+    fingerprint = service.create_input_fingerprint(inputs)
+    return 200, {
+        "available": True,
+        "application_id": application_id,
+        "model_version": service.artifact.get("model_version"),
+        "model_metrics": service.artifact.get("metrics"),
+        "probability_percent": round(result["model_probability_percent"], 2),
+        "model_prediction": result["model_prediction"],
+        "recommendation": result["predicted_class"],
+        "baseline_percent": result["base_rate_percent"],
+        "contributions": result["feature_contributions"],
+        "ai_reasons": result["ai_reasons"],
+        "rule_flags": result["reasons"],
+        "exam_percentage": round(result["exam_percentage"], 1),
+        "mswd_threshold": result["mswd_threshold"],
+        "saved": saved,
+        "inputs_changed_since_saved": bool(saved and saved["fingerprint"] and saved["fingerprint"] != fingerprint),
+    }
 
 
 def enrich_applications(applications):
@@ -568,6 +633,10 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(200, {"item": item})
 
                 return self._send(404, {"error": "Applicant not found."})
+
+            if path.startswith("/api/applications/") and path.endswith("/ai-explanation"):
+                status, payload = ai_explanation(int(path.split("/")[-2]))
+                return self._send(status, payload)
 
             if path.startswith("/api/applications/"):
                 application_id = int(path.rsplit("/", 1)[1])

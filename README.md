@@ -55,6 +55,16 @@ A trained model is included in `models/`. To retrain it from `isko.csv`:
 python train_ml_model.py
 ```
 
+To evaluate the saved model (confusion matrix, accuracy, precision, recall, specificity, F1, ROC-AUC, 5-fold cross-validation and feature importance) on the held-out test rows:
+
+```bash
+python evaluate_ml_model.py          # add --quick to skip cross-validation, --open to open the report
+```
+
+The report is written to `reports/model_evaluation/evaluation_report.html` (charts and `metrics.json` are saved alongside it).
+
+Each application and applicant profile in the desktop UI shows the model's chance of qualifying and why: how much each input (academic average, income, exam, 4Ps, etc.) raised or lowered that chance. The breakdown comes from the Random Forest's own decision paths (`app/services/ml_explainer.py`) and adds up exactly to the predicted percentage. AI results are advisory only.
+
 ## Testing
 
 The tests connect to a MySQL database configured through `.env`.

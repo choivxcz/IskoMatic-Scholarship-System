@@ -20,6 +20,7 @@ import "./workspace-polish.css";
 import "./styles/components.css";
 import "./settings.css";
 import "./tracking.css";
+import "./ai-explanation.css";
 import "./auth.css";
 import "./motion.css";
 

@@ -98,6 +98,9 @@ class ScreeningPersistenceService:
                 "mswd_threshold": result["mswd_threshold"],
                 "mswd_eligible": result["mswd_eligible"],
                 "reasons": result["reasons"],
+                "base_rate_percent": result["base_rate_percent"],
+                "feature_contributions": result["feature_contributions"],
+                "ai_reasons": result["ai_reasons"],
                 "screening_input_fingerprint": fingerprint,
                 "requires_human_review": True,
                 "note": (
