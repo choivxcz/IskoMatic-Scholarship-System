@@ -1,3 +1,16 @@
+"""Scholarship screening: fixed eligibility rules first, then the ML model.
+
+Step 1 (rules, no AI): the office's eligibility rules are checked directly.
+An applicant who fails any rule is not scored by the model; staff confirm
+the result before any official action.
+
+Step 2 (ML): among applicants who pass every rule, a Random Forest estimates
+the chance of qualifying from need and merit factors. That chance is used to
+rank eligible applicants within the same program and year
+(see screening_ranking_service.py).
+
+Every result is advisory. The system never awards or rejects a scholarship.
+"""
 
 from pathlib import Path
 
@@ -7,9 +20,10 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import (
     accuracy_score,
+    f1_score,
     precision_score,
     recall_score,
-    f1_score,
+    roc_auc_score,
 )
 from sklearn.model_selection import train_test_split
 
@@ -25,6 +39,15 @@ MODEL_PATH = (
     / "scholarship_random_forest.joblib"
 )
 
+MODEL_VERSION = "rf-2.0.0"
+
+# Eligibility rules (step 1). These are office policy, not model inputs.
+EXAM_PASSING_RATE = 0.8
+MINIMUM_AVERAGE_EXCLUSIVE = 75
+
+# Need and merit factors the model weighs for eligible applicants (step 2).
+# 4Ps, SPES, scholars in family and exam passed are decided by the rules,
+# so the model does not use them.
 FEATURES = [
     "AcademicAverage",
     "MonthlyIncome",
@@ -35,21 +58,30 @@ FEATURES = [
     "PWDCount",
     "SoloParent",
     "Dependent",
+]
+
+# Columns needed to apply the eligibility rules to the training data.
+RULE_COLUMNS = [
     "ExamPassed",
     "4psBeneficiaries",
     "SPESBeneficiaries",
     "ScholarsInFamily",
 ]
 
-REQUIRED_COLUMNS = FEATURES + [
-    "ScholarshipQualified",
-    "MSWDOPovertyEligible",
-    "SoloParent",
-    "ExamPassed",
-    "4psBeneficiaries",
-    "SPESBeneficiaries",
-    "ScholarsInFamily",
-]
+REQUIRED_COLUMNS = FEATURES + RULE_COLUMNS + ["ScholarshipQualified"]
+
+TRAINING_CONFIGURATION = {
+    "n_estimators": 300,
+    "min_samples_leaf": 10,
+    "random_state": 42,
+    "test_size": 0.20,
+    "training_population": "Applicants who pass every eligibility rule",
+}
+
+NOT_ELIGIBLE = "Not Eligible"
+PROCEED_TO_INTERVIEW = "Proceed To Interview"
+NEEDS_OFFICIAL_REVIEW = "Needs Official Review"
+
 
 def load_saved_model():
 
@@ -106,6 +138,7 @@ def load_saved_model():
 
     return model, artifact
 
+
 def _yes_no_to_int(series):
     """Convert Yes/No values to 1/0."""
 
@@ -123,6 +156,54 @@ def _yes_no_to_int(series):
         "yes": 1,
         "no": 0,
     }).astype(int)
+
+
+def eligibility_failures(average, exam_passed, fourps, spes, scholars):
+    """Return the eligibility rules an applicant fails (empty when eligible)."""
+
+    failures = []
+
+    if not exam_passed:
+        failures.append(
+            "Exam score is below the required 80% passing rate."
+        )
+
+    if average <= MINIMUM_AVERAGE_EXCLUSIVE:
+        failures.append(
+            "Academic average must be greater than 75."
+        )
+
+    if spes:
+        failures.append(
+            "Applicant is an SPES beneficiary."
+        )
+
+    if fourps:
+        failures.append(
+            "Applicant is a 4Ps beneficiary."
+        )
+
+    if scholars >= 1:
+        failures.append(
+            "Family already has a scholar."
+        )
+
+    return failures
+
+
+def eligible_rows(df):
+    """Boolean mask of dataset rows that pass every eligibility rule."""
+
+    average = pd.to_numeric(df["AcademicAverage"], errors="raise")
+    scholars = pd.to_numeric(df["ScholarsInFamily"], errors="raise")
+
+    return (
+        (_yes_no_to_int(df["ExamPassed"]) == 1)
+        & (average > MINIMUM_AVERAGE_EXCLUSIVE)
+        & (_yes_no_to_int(df["4psBeneficiaries"]) == 0)
+        & (_yes_no_to_int(df["SPESBeneficiaries"]) == 0)
+        & (scholars < 1)
+    )
 
 
 def prepare_features(df):
@@ -172,25 +253,6 @@ def prepare_features(df):
         errors="raise",
     )
 
-    X["ExamPassed"] = _yes_no_to_int(
-        df["ExamPassed"]
-    )
-
-    X["4psBeneficiaries"] = _yes_no_to_int(
-        df["4psBeneficiaries"]
-    )
-
-    X["SPESBeneficiaries"] = _yes_no_to_int(
-        df["SPESBeneficiaries"]
-    )
-
-    X["ScholarsInFamily"] = (
-        pd.to_numeric(
-            df["ScholarsInFamily"],
-            errors="raise",
-        ) >= 1
-    ).astype(int)
-
     X = X[FEATURES]
 
     if X.isnull().any().any():
@@ -213,7 +275,14 @@ def prepare_features(df):
 
     return X
 
-def load_and_train(csv_path=DEFAULT_CSV):
+
+def load_training_data(csv_path=DEFAULT_CSV):
+    """
+    Read the dataset and keep only rule-eligible applicants.
+
+    Returns (X, y, summary). The model only ever scores eligible applicants,
+    so it is trained and tested on that same group.
+    """
 
     csv_path = Path(csv_path)
 
@@ -248,36 +317,58 @@ def load_and_train(csv_path=DEFAULT_CSV):
             "ScholarshipQualified must contain only Yes or No."
         )
 
-    X = prepare_features(df)
+    mask = eligible_rows(df)
+    eligible = df[mask]
 
-    y = labels.map({
+    X = prepare_features(eligible)
+
+    y = labels[mask].map({
         "No": 0,
         "Yes": 1,
     }).astype(int)
 
     if y.nunique() != 2 or y.value_counts().min() < 2:
         raise ValueError(
-            "Training requires at least two examples of each class."
+            "Training requires at least two examples of each class "
+            "among eligible applicants."
         )
 
-    X_train, X_test, y_train, y_test = train_test_split(
+    summary = {
+        "dataset_rows": int(len(df)),
+        "eligible_rows": int(len(eligible)),
+        "eligible_qualified_share": float(y.mean()),
+    }
+
+    return X, y, summary
+
+
+def split_training_data(X, y):
+    return train_test_split(
         X,
         y,
-        test_size=0.20,
-        random_state=42,
+        test_size=TRAINING_CONFIGURATION["test_size"],
+        random_state=TRAINING_CONFIGURATION["random_state"],
         stratify=y,
     )
 
+
+def load_and_train(csv_path=DEFAULT_CSV):
+
+    X, y, summary = load_training_data(csv_path)
+
+    X_train, X_test, y_train, y_test = split_training_data(X, y)
+
     model = RandomForestClassifier(
-        n_estimators=300,
-        min_samples_leaf=3,
-        random_state=42,
+        n_estimators=TRAINING_CONFIGURATION["n_estimators"],
+        min_samples_leaf=TRAINING_CONFIGURATION["min_samples_leaf"],
+        random_state=TRAINING_CONFIGURATION["random_state"],
         n_jobs=-1,
     )
 
     model.fit(X_train, y_train)
 
     predictions = model.predict(X_test)
+    probabilities = model.predict_proba(X_test)[:, 1]
 
     metrics = {
         "accuracy": accuracy_score(
@@ -299,20 +390,27 @@ def load_and_train(csv_path=DEFAULT_CSV):
             predictions,
             zero_division=0,
         ),
+        "roc_auc": roc_auc_score(
+            y_test,
+            probabilities,
+        ),
         "training_rows": len(X_train),
         "testing_rows": len(X_test),
+        **summary,
     }
 
     return model, metrics
 
+
 def mswd_threshold(household, children, seniors, pwds):
-    
+
     return (
         max(15000, 4000 * household)
         + 2000 * children
         + 2000 * seniors
         + 2500 * pwds
     )
+
 
 def evaluate_applicant(model, applicant):
 
@@ -398,7 +496,11 @@ def evaluate_applicant(model, applicant):
         )
 
     exam_passed = int(
-        exam_score >= 0.8 * exam_total
+        exam_score >= EXAM_PASSING_RATE * exam_total
+    )
+
+    exam_percentage = (
+        exam_score / exam_total * 100
     )
 
     threshold = mswd_threshold(
@@ -410,6 +512,42 @@ def evaluate_applicant(model, applicant):
 
     mswd_eligible = income <= threshold
 
+    common = {
+        "exam_percentage": exam_percentage,
+        "exam_passed": bool(exam_passed),
+        "mswd_threshold": threshold,
+        "mswd_eligible": bool(mswd_eligible),
+        "passing_rate": None,
+        "requires_human_review": True,
+    }
+
+    # Step 1: eligibility rules. Failing applicants are not scored.
+    reasons = eligibility_failures(
+        average,
+        exam_passed,
+        bool(applicant["fourps"]),
+        bool(applicant["spes"]),
+        scholars,
+    )
+
+    if reasons:
+        return {
+            "predicted_class": NOT_ELIGIBLE,
+            "eligible": False,
+            "model_prediction": "NOT_ELIGIBLE",
+            "model_probability_percent": None,
+            "reasons": reasons,
+            "base_rate_percent": None,
+            "feature_contributions": [],
+            "ai_reasons": [(
+                "The applicant does not pass every eligibility rule, "
+                "so the AI did not score this application. "
+                "Staff confirm this before any official action."
+            )],
+            **common,
+        }
+
+    # Step 2: the model scores eligible applicants on need and merit.
     row = pd.DataFrame([{
         "AcademicAverage": average,
         "MonthlyIncome": income,
@@ -420,10 +558,6 @@ def evaluate_applicant(model, applicant):
         "PWDCount": pwds,
         "SoloParent": int(applicant["solo"]),
         "Dependent": dependents,
-        "ExamPassed": exam_passed,
-        "4psBeneficiaries": int(applicant["fourps"]),
-        "SPESBeneficiaries": int(applicant["spes"]),
-        "ScholarsInFamily": int(scholars >= 1),
     }])[FEATURES]
 
     prediction = int(model.predict(row)[0])
@@ -443,63 +577,22 @@ def evaluate_applicant(model, applicant):
     # exactly to `probability` (see ml_explainer.py).
     model_explanation = explain_prediction(model, row, FEATURES)
 
-    reasons = []
-    
-    if not exam_passed:
-        reasons.append(
-        "Exam score is below the required 80% passing rate."
-        )
-    
-    if average <= 75:
-        reasons.append(
-            "Academic average must be greater than 75."
-        )
-
-    if applicant["spes"]:
-        reasons.append(
-            
-            "Applicant is an SPES beneficiary."
-        )
-
-    if applicant["fourps"]:
-        reasons.append(
-            "Applicant is a 4Ps beneficiary."
-        )
-
-    if scholars >= 1:
-        reasons.append(
-            "Family already has a scholar."
-        )
-    qualified = (
-    not reasons
-    and prediction == 1
-    and exam_passed == 1
-    )
-
-    exam_percentage = (
-        exam_score / exam_total * 100
-    )
-
     return {
         "predicted_class": (
-            "Proceed To Interview"
-            if qualified
-            else "Needs Official Review"
+            PROCEED_TO_INTERVIEW
+            if prediction == 1
+            else NEEDS_OFFICIAL_REVIEW
         ),
+        "eligible": True,
         "model_prediction": (
             "QUALIFIED"
             if prediction == 1
             else "NOT_QUALIFIED"
         ),
         "model_probability_percent": probability,
-        "exam_percentage": exam_percentage,
-        "exam_passed": bool(exam_passed),
-        "mswd_threshold": threshold,
-        "mswd_eligible": bool(mswd_eligible),
-        "reasons": reasons,
+        "reasons": [],
         "base_rate_percent": model_explanation["baseline_percent"],
         "feature_contributions": model_explanation["contributions"],
         "ai_reasons": model_explanation["summary"],
-        "passing_rate": None,
-        "requires_human_review": True,
+        **common,
     }

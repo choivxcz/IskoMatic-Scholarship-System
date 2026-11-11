@@ -11,9 +11,13 @@ from app.services.ml_screening_service import (
 )
 
 
+# Applicants who fail an eligibility rule are saved as NEEDS_OFFICIAL_REVIEW
+# with no AI score: the rules flag them, but staff confirm before any official
+# action. The explanation JSON records "eligible": false and the failed rules.
 PERSISTED_PREDICTIONS = {
     "Proceed To Interview": "PROCEED_TO_INTERVIEW",
     "Needs Official Review": "NEEDS_OFFICIAL_REVIEW",
+    "Not Eligible": "NEEDS_OFFICIAL_REVIEW",
 }
 
 
@@ -84,11 +88,15 @@ class ScreeningPersistenceService:
 
         fingerprint = self.create_input_fingerprint(applicant_data)
 
-        confidence_score = result["model_probability_percent"] / 100.0
+        probability = result["model_probability_percent"]
+        confidence_score = (
+            probability / 100.0 if probability is not None else None
+        )
 
         explanation = json.dumps(
             {
                 "model_version": self.artifact["model_version"],
+                "eligible": result["eligible"],
                 "model_prediction": result["model_prediction"],
                 "model_probability_percent": result[
                     "model_probability_percent"

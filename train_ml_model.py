@@ -1,4 +1,3 @@
-
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -6,6 +5,8 @@ import joblib
 
 from app.services.ml_screening_service import (
     FEATURES,
+    MODEL_VERSION,
+    TRAINING_CONFIGURATION,
     load_and_train,
 )
 
@@ -19,26 +20,22 @@ def main():
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
     print("Training the scholarship screening model...")
+    print("Only applicants who pass every eligibility rule are used.")
     model, metrics = load_and_train()
 
     artifact = {
         "model": model,
         "features": FEATURES,
         "metrics": metrics,
-        "model_version": "rf-1.0.0",
+        "model_version": MODEL_VERSION,
         "trained_at_utc": datetime.now(
             timezone.utc
         ).isoformat(),
         "dataset": "isko.csv",
-        "training_configuration": {
-            "n_estimators": 300,
-            "min_samples_leaf": 3,
-            "random_state": 42,
-            "test_size": 0.20,
-        },
+        "training_configuration": TRAINING_CONFIGURATION,
     }
 
-    joblib.dump(artifact, MODEL_PATH)
+    joblib.dump(artifact, MODEL_PATH, compress=3)
 
     print("\nModel saved successfully.")
     print(f"Location: {MODEL_PATH}")

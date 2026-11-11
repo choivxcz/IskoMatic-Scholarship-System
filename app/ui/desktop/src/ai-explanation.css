@@ -74,3 +74,9 @@ html[data-theme="dark"] .ai-factors { border-color: #2a384d; }
 html[data-theme="dark"] .ai-why li.against, html[data-theme="dark"] .ai-foot, html[data-theme="dark"] .ai-note { color: #9aaac0; }
 @media (max-width: 480px) { .ai-factors li { grid-template-columns: minmax(0, 1fr) 56px; } .ai-factor-track { grid-column: 1 / -1; grid-row: 2; } }
 .ai-application-heading { margin: 14px 0 -4px; font-size: 12px; font-weight: 600; color: #536d94; }
+
+/* Applicant failed an eligibility rule: no score ring, the failed rules instead. */
+.ai-rule-badge { flex-shrink: 0; display: grid; place-items: center; width: 68px; height: 68px; border-radius: 50%; background: rgba(231, 160, 74, .14); color: #996500; }
+.compact .ai-rule-badge { width: 56px; height: 56px; }
+.ai-explain-ineligible .ai-rules { margin-top: 12px; }
+.ai-rule-note { margin: 10px 0 0; }

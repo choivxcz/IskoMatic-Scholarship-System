@@ -15,10 +15,11 @@ This repository contains the desktop edition, developed in Python with PyQt6. A 
 ## Features
 
 1. Registration. Each applicant and application, including examination scores and household information, is entered through a single guided form with input validation.
-2. AI-assisted screening. A Random Forest classifier evaluates each pending application on 13 academic and household factors and returns a probability and a recommendation. The recommendation is advisory: the system does not award or reject a scholarship on its own, and final decisions remain with the office.
-3. Selective re-screening. Each screening result stores a fingerprint of its inputs and the model version, so applications that have not changed are not evaluated again.
-4. Review workflow. Reviewers may endorse, waitlist, or reject an application, after which interviews and official decisions are recorded.
-5. Archiving. Records are archived rather than deleted, so past applicants and their outcomes remain searchable.
+2. Rules first, then AI. Each application is first checked against the office's eligibility rules: entrance exam score of 80% or higher, academic average above 75, not a 4Ps or SPES beneficiary, and no other scholar in the family. Applicants who fail a rule are not scored and are flagged for staff to confirm. For applicants who pass every rule, a Random Forest classifier estimates the chance of qualifying from 9 need and merit factors (academic average, income, household make-up, dependents, solo parent, MSWDO poverty line). All results are advisory: the system does not award or reject a scholarship on its own, and final decisions remain with the office.
+3. Priority ranking. Eligible applicants are ranked by their chance of qualifying within the same scholarship program and year, so staff can review them in order against the available slots. Results from an older model, or from application details that changed after screening, are marked "Re-screen needed" instead of being ranked.
+4. Selective re-screening. Each screening result stores a fingerprint of its inputs and the model version, so applications that have not changed are not evaluated again.
+5. Review workflow. Reviewers may endorse, waitlist, or reject an application, after which interviews and official decisions are recorded.
+6. Archiving. Records are archived rather than deleted, so past applicants and their outcomes remain searchable.
 
 ## Technologies Used
 
@@ -63,7 +64,9 @@ python evaluate_ml_model.py          # add --quick to skip cross-validation, --o
 
 The report is written to `reports/model_evaluation/evaluation_report.html` (charts and `metrics.json` are saved alongside it).
 
-Each application and applicant profile in the desktop UI shows the model's chance of qualifying and why: how much each input (academic average, income, exam, 4Ps, etc.) raised or lowered that chance. The breakdown comes from the Random Forest's own decision paths (`app/services/ml_explainer.py`) and adds up exactly to the predicted percentage. AI results are advisory only.
+The model is trained and evaluated only on applicants who pass every eligibility rule, since those are the only applicants it scores. The evaluation report also shows how many qualified applicants appear among the top-ranked 10%, 25% and 50%.
+
+Each application and applicant profile in the desktop UI shows the model's chance of qualifying and why: how much each input (academic average, income, household size, etc.) raised or lowered that chance. The breakdown comes from the Random Forest's own decision paths (`app/services/ml_explainer.py`) and adds up exactly to the predicted percentage. AI results are advisory only.
 
 ## Testing
 

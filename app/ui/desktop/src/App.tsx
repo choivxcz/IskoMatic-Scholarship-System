@@ -52,7 +52,7 @@ const requestedView = new URLSearchParams(window.location.search).get("view") ||
 const initialPage: PageKey = !requestedView && ["Overview", "Applicants", "Applications", "AI Screening", "Interviews", "Decisions"].includes(localStorage.getItem("iskolar-landing") || "") ? localStorage.getItem("iskolar-landing") as PageKey : requestedView === "activity" ? "Activity Log" : requestedView === "settings" ? "Settings" : requestedView === "decisions" ? "Decisions" : requestedView === "interviews" ? "Interviews" : requestedView === "screening" ? "AI Screening" : requestedView === "applications" ? "Applications" : requestedView === "applicants" ? "Applicants" : "Overview";
 const API = "http://127.0.0.1:8765/api";
 // Must match API_VERSION in bridge_server.py.
-const REQUIRED_API_VERSION = 2;
+const REQUIRED_API_VERSION = 3;
 
 const nav: { label: PageKey; icon: typeof LayoutDashboard; group: string }[] = [
   { label: "Overview", icon: LayoutDashboard, group: "WORKSPACE" },
@@ -1148,6 +1148,7 @@ function modelLabel(row: Row) {
   const value = String(details.model_prediction ?? "").toLowerCase();
   if (["1", "qualified"].includes(value)) return "Model predicts qualified";
   if (["0", "not qualified", "not_qualified"].includes(value)) return "Model predicts not qualified";
+  if (value === "not_eligible") return "Fails eligibility rules";
   return row.predicted_class ? `Advisory: ${nice(row.predicted_class)}` : "Recommendation unavailable";
 }
 function RecordDetail({ row, page, onClose }: { row: Row; page: PageKey; onClose: () => void }) {

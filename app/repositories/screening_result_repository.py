@@ -184,6 +184,10 @@ class ScreeningResultRepository:
 
                 row["reasons"] = parsed.get("reasons", [])
 
+                # None for results saved before the eligibility rules were
+                # separated from the model (rf-1.x).
+                row["eligible"] = parsed.get("eligible")
+
                 row["exam_percentage"] = parsed.get(
                     "exam_percentage"
                 )

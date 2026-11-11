@@ -7,16 +7,18 @@ Run from the project root:
 
 What it does
 - Loads models/scholarship_random_forest.joblib and isko.csv.
-- Rebuilds the exact train/test split used by train_ml_model.py, so the
-  test rows are ones the model never saw while training.
+- Keeps only applicants who pass every eligibility rule (the only group the
+  model scores in the app), then rebuilds the exact train/test split used by
+  train_ml_model.py, so the test rows are ones the model never saw.
 - Prints the confusion matrix and the standard metrics, and saves:
     reports/model_evaluation/evaluation_report.html  (open in any browser)
     reports/model_evaluation/metrics.json
     reports/model_evaluation/*.png                     (charts)
 
-Note: this measures the Random Forest alone. The screening recommendation
-shown in the app also applies fixed rules (exam pass mark, 4Ps, SPES, etc.)
-and is always advisory.
+Note: the eligibility rules (exam pass mark, average above 75, 4Ps, SPES,
+scholars in family) are applied before the model and are not measured here.
+The model's job is to rank eligible applicants, so the report also shows how
+many qualified applicants appear among the top-ranked ones. Always advisory.
 """
 from __future__ import annotations
 
@@ -55,10 +57,10 @@ from sklearn.model_selection import StratifiedKFold, cross_validate, train_test_
 
 from app.services.ml_explainer import FEATURE_INFO  # noqa: E402
 from app.services.ml_screening_service import (  # noqa: E402
-    DEFAULT_CSV,
     FEATURES,
     load_saved_model,
-    prepare_features,
+    load_training_data,
+    split_training_data,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -71,16 +73,8 @@ BLUE, NAVY, GREEN, RED, AMBER = "#115df4", "#061f4e", "#13835f", "#c92e4b", "#e7
 
 def load_split(artifact):
     """Recreate train_ml_model.py's split; returns X_train, X_test, y_train, y_test, X, y."""
-    df = pd.read_csv(DEFAULT_CSV)
-    X = prepare_features(df)
-    y = df["ScholarshipQualified"].astype(str).str.strip().map({"No": 0, "Yes": 1}).astype(int)
-    config = artifact.get("training_configuration", {})
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y,
-        test_size=config.get("test_size", 0.20),
-        random_state=config.get("random_state", 42),
-        stratify=y,
-    )
+    X, y, _ = load_training_data()
+    X_train, X_test, y_train, y_test = split_training_data(X, y)
     return X_train, X_test, y_train, y_test, X, y
 
 
@@ -113,7 +107,19 @@ def compute_metrics(model, X_test, y_test):
         "test_rows": int(len(y_test)),
         "test_qualified_share": float(np.mean(y_test)),
         "decision_threshold": 0.5,
+        "top_ranked": top_ranked(y_test, probabilities),
     }, probabilities, predictions
+
+
+def top_ranked(y_test, probabilities):
+    """Share of qualified applicants among the top-ranked 10/25/50% (vs. the overall share)."""
+    order = np.argsort(-probabilities, kind="stable")
+    actual = np.asarray(y_test)[order]
+    rows = []
+    for share in (0.10, 0.25, 0.50):
+        count = max(1, int(round(len(actual) * share)))
+        rows.append({"top_share": share, "applicants": count, "qualified_share": float(actual[:count].mean())})
+    return rows
 
 
 def cross_validation(model, X, y, folds=5):
@@ -134,9 +140,9 @@ def importances(model, X_test, y_test, with_permutation):
     rows = [{"feature": name, "label": FEATURE_INFO.get(name, (name,))[0], "impurity": float(value)}
             for name, value in zip(FEATURES, model.feature_importances_)]
     if with_permutation:
-        result = permutation_importance(model, X_test, y_test, scoring="f1", n_repeats=10, random_state=42, n_jobs=-1)
+        result = permutation_importance(model, X_test, y_test, scoring="roc_auc", n_repeats=10, random_state=42, n_jobs=-1)
         for row, mean, std in zip(rows, result.importances_mean, result.importances_std):
-            row["permutation_f1_drop"] = float(mean)
+            row["permutation_auc_drop"] = float(mean)
             row["permutation_std"] = float(std)
     rows.sort(key=lambda row: row["impurity"], reverse=True)
     return rows
@@ -221,6 +227,10 @@ def print_report(metrics, cv, rows, report_text, matched):
     for key in ("accuracy", "balanced_accuracy", "precision", "recall_sensitivity", "specificity", "f1_score",
                 "roc_auc", "average_precision", "log_loss", "brier_score"):
         print(f"{key:22}{metrics[key]:.4f}")
+    print("\n=== Ranking: qualified share among the top-ranked ===")
+    print(f"{'All eligible test applicants':34}{metrics['test_qualified_share']:.1%}")
+    for row in metrics["top_ranked"]:
+        print(f"{'Top ' + format(row['top_share'], '.0%') + ' (' + str(row['applicants']) + ')':34}{row['qualified_share']:.1%}")
     print("\n=== Classification report ===\n" + report_text)
     if cv:
         print("=== 5-fold cross-validation (mean ± std) ===")
@@ -228,7 +238,7 @@ def print_report(metrics, cv, rows, report_text, matched):
             print(f"{name:22}{value['mean']:.4f} ± {value['std']:.4f}")
     print("\n=== Feature importance ===")
     for row in rows:
-        extra = f"   permutation F1 drop {row['permutation_f1_drop']:.4f}" if "permutation_f1_drop" in row else ""
+        extra = f"   permutation AUC drop {row['permutation_auc_drop']:.4f}" if "permutation_auc_drop" in row else ""
         print(f"{row['label']:34}{row['impurity']:.4f}{extra}")
     if not matched:
         print("\nWARNING: this split does not reproduce the training run (isko.csv or settings changed).\n"
@@ -251,6 +261,10 @@ def write_html(artifact, metrics, cv, rows, report_text, charts, matched):
         ("F1 score", pct(metrics["f1_score"]), "Balance of precision and recall."),
         ("ROC-AUC", f"{metrics['roc_auc']:.3f}", "1.0 = perfect ranking, 0.5 = random guessing."),
     ]
+    ranked_rows = "".join(
+        f"<tr><td>Top {row['top_share']:.0%} ({row['applicants']} applicants)</td><td>{row['qualified_share']:.1%}</td></tr>"
+        for row in metrics["top_ranked"]
+    )
     cv_rows = "".join(
         f"<tr><td>{html.escape(name.replace('_', ' ').title())}</td><td>{value['mean']:.4f}</td><td>± {value['std']:.4f}</td>"
         f"<td>{' · '.join(f'{v:.3f}' for v in value['folds'])}</td></tr>"
@@ -258,7 +272,7 @@ def write_html(artifact, metrics, cv, rows, report_text, charts, matched):
     )
     importance_rows = "".join(
         f"<tr><td>{html.escape(row['label'])}</td><td>{row['impurity']:.4f}</td>"
-        f"<td>{row.get('permutation_f1_drop', float('nan')):.4f}</td></tr>" for row in rows
+        f"<td>{row.get('permutation_auc_drop', float('nan')):.4f}</td></tr>" for row in rows
     )
     warning = "" if matched else (
         '<div class="warn">This split does not reproduce the training run (isko.csv or settings changed). '
@@ -286,9 +300,11 @@ pre {{ background:#f8fbff; border:1px solid var(--line); border-radius:8px; padd
 <p>Random Forest {html.escape(str(artifact.get('model_version', '')))} · trained {html.escape(str(artifact.get('trained_at_utc', 'unknown'))[:19])} UTC ·
 dataset {html.escape(str(artifact.get('dataset', 'isko.csv')))} · report generated {datetime.now():%Y-%m-%d %H:%M}</p></div></header>
 <main>{warning}
-<section><h2>Summary</h2><p class="sub">Measured on {metrics['test_rows']:,} held-out applicants the model never saw during training
+<section><h2>Summary</h2><p class="sub">Measured on {metrics['test_rows']:,} held-out applicants who pass every eligibility rule and that the model never saw during training
 ({metrics['test_qualified_share']:.1%} of them actually qualified). A prediction of 50% or more counts as "qualified".</p>
 <div class="cards">{''.join(f'<div class="card">{t}<b>{v}</b><small>{d}</small></div>' for t, v, d in cards)}</div></section>
+<section><h2>Priority ranking</h2><p class="sub">The app ranks eligible applicants by their chance of qualifying. If the ranking works, the top of the list holds more qualified applicants than the group as a whole.</p>
+<div class="table-wrap"><table><tr><th>Group</th><th>Actually qualified</th></tr><tr><td>All eligible test applicants</td><td>{metrics['test_qualified_share']:.1%}</td></tr>{ranked_rows}</table></div></section>
 <section><h2>Confusion matrix</h2><p class="sub">Rows are the real outcome; columns are what the model predicted.</p>
 <div class="grid"><div class="table-wrap"><table class="cm"><tr><th></th><th>Predicted not qualified</th><th>Predicted qualified</th></tr>
 <tr><th>Actually not qualified</th><td class="ok">{cm['true_negative']}<br><small>true negatives</small></td><td class="bad">{cm['false_positive']}<br><small>false positives</small></td></tr>
@@ -300,12 +316,12 @@ dataset {html.escape(str(artifact.get('dataset', 'isko.csv')))} · report genera
 <p class="note">Log loss {metrics['log_loss']:.4f} · Brier score {metrics['brier_score']:.4f} (lower is better; they measure how trustworthy the percentages are).</p></section>
 <section><h2>Confidence distribution</h2><p class="sub">Predicted chance of qualifying for each test applicant, split by the real outcome.</p>{image_tag(charts['probabilities'], 'Probability distribution')}</section>
 {f'<section><h2>5-fold cross-validation</h2><p class="sub">The same model settings retrained on five different splits of the full dataset. A small ± means results are stable.</p><div class="table-wrap"><table><tr><th>Metric</th><th>Mean</th><th>Spread</th><th>Per fold</th></tr>{cv_rows}</table></div></section>' if cv else ''}
-<section><h2>What the model relies on</h2><p class="sub">Overall importance across all applicants. Permutation = how much F1 drops when that input is scrambled ({'not computed in quick mode' if 'permutation_f1_drop' not in rows[0] else 'higher means more important'}).</p>
-<div class="grid">{image_tag(charts['importance'], 'Feature importance')}<div class="table-wrap"><table><tr><th>Input</th><th>Importance</th><th>Permutation F1 drop</th></tr>{importance_rows}</table></div></div>
+<section><h2>What the model relies on</h2><p class="sub">Overall importance across all applicants. Permutation = how much ranking quality (ROC-AUC) drops when that input is scrambled ({'not computed in quick mode' if 'permutation_auc_drop' not in rows[0] else 'higher means more important'}).</p>
+<div class="grid">{image_tag(charts['importance'], 'Feature importance')}<div class="table-wrap"><table><tr><th>Input</th><th>Importance</th><th>Permutation AUC drop</th></tr>{importance_rows}</table></div></div>
 <p class="note">Each applicant's profile in the app shows a personal breakdown: how much each of their own inputs raised or lowered their chance.</p></section>
 <section><h2>Classification report</h2><pre>{html.escape(report_text)}</pre>
-<p class="note">This evaluates the Random Forest alone. The app's screening recommendation also applies fixed rules (exam pass mark, 4Ps, SPES, scholars in family)
-and is always advisory — final decisions are made by authorized LYDO officials.</p></section>
+<p class="note">The eligibility rules (exam pass mark, average above 75, 4Ps, SPES, scholars in family) are applied before the model and are not part of these numbers.
+Every result is advisory; final decisions are made by authorized LYDO officials.</p></section>
 </main></body></html>"""
     path = OUTPUT_DIR / "evaluation_report.html"
     path.write_text(page, encoding="utf-8")

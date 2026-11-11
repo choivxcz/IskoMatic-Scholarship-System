@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, BrainCircuit, ChevronDown, Info, LoaderCircle, TrendingDown, TrendingUp } from "lucide-react";
+import { AlertTriangle, BrainCircuit, ChevronDown, Info, ListChecks, LoaderCircle, TrendingDown, TrendingUp } from "lucide-react";
 import { API_BASE, apiFetch } from "../api";
 import { dateLocale, dateOptions } from "../datePreferences";
 import CountUp from "./CountUp";
@@ -8,15 +8,17 @@ type Contribution = { feature: string; label: string; display_value: string; imp
 type Explanation = {
   available: boolean;
   error?: string;
-  probability_percent: number;
-  model_prediction: "QUALIFIED" | "NOT_QUALIFIED";
+  /** False when the applicant fails an eligibility rule; the model then gives no score. */
+  eligible: boolean;
+  probability_percent: number | null;
+  model_prediction: "QUALIFIED" | "NOT_QUALIFIED" | "NOT_ELIGIBLE";
   recommendation: string;
-  baseline_percent: number;
+  baseline_percent: number | null;
   contributions: Contribution[];
   ai_reasons: string[];
   rule_flags: string[];
   model_version?: string;
-  saved: { probability_percent: number; screened_at: string; recommendation: string } | null;
+  saved: { probability_percent: number | null; screened_at: string; recommendation: string } | null;
   inputs_changed_since_saved: boolean;
 };
 
@@ -57,6 +59,29 @@ export default function AiExplanation({ applicationId, compact = false, onMore }
   if (!data) return <div className="ai-explain ai-explain-empty"><LoaderCircle size={16} className="spin" />Analysing application…</div>;
   if (!data.available) return <div className="ai-explain ai-explain-empty"><Info size={16} />{data.error}</div>;
 
+  const savedText = data.saved
+    ? <span>Last saved screening: <b>{data.saved.probability_percent == null ? "not scored (eligibility rules)" : `${data.saved.probability_percent.toFixed(1)}%`}</b> on {dateText(data.saved.screened_at)}.{data.inputs_changed_since_saved && <em> Application details changed since then — run screening again to save an updated result.</em>}</span>
+    : <span>Not screened yet. This is a live preview from the current application details; run screening to save it.</span>;
+
+  if (!data.eligible || data.probability_percent == null) {
+    return <section className={`ai-explain ai-explain-ineligible ${compact ? "compact" : ""}`} aria-label="Eligibility check">
+      <header className="ai-explain-head">
+        <span className="ai-rule-badge" aria-hidden="true"><ListChecks size={compact ? 26 : 30} /></span>
+        <div className="ai-explain-title">
+          <small><BrainCircuit size={13} />ELIGIBILITY CHECK · ADVISORY</small>
+          <strong>Does not pass the eligibility rules</strong>
+          <span className="ai-chip review">Not scored · staff to confirm</span>
+        </div>
+      </header>
+      <div className="ai-rules"><AlertTriangle size={14} /><div><strong>Rules not met</strong>{data.rule_flags.map(flag => <span key={flag}>{flag}</span>)}</div></div>
+      <p className="ai-note ai-rule-note">The AI only scores and ranks applicants who pass every eligibility rule. This is not an official decision; the application's stage is unchanged until staff act on it.</p>
+      <footer className="ai-foot">
+        {savedText}
+        {compact && onMore && <button type="button" className="ai-more" onClick={onMore}>See details</button>}
+      </footer>
+    </section>;
+  }
+
   const percent = Math.max(0, Math.min(100, data.probability_percent));
   const leansQualified = data.model_prediction === "QUALIFIED";
   const reasons = data.ai_reasons.slice(1); // first sentence repeats the percentage
@@ -85,11 +110,10 @@ export default function AiExplanation({ applicationId, compact = false, onMore }
       {!compact && against.length > 0 && <><h5>Working the other way</h5><ul>{against.map(line => <li key={line} className="against">{line}</li>)}</ul></>}
     </div>
 
-    {data.rule_flags.length > 0 && <div className="ai-rules"><AlertTriangle size={14} /><div><strong>Screening rules also flagged</strong>{data.rule_flags.map(flag => <span key={flag}>{flag}</span>)}</div></div>}
 
     {!compact && <div className="ai-factors">
       <h4>How each input moved the chance</h4>
-      <p className="ai-note">Starts at {data.baseline_percent.toFixed(1)}% (the share of qualified applicants the model learned from). Green bars raised the chance, red bars lowered it.</p>
+      <p className="ai-note">Starts at {(data.baseline_percent ?? 0).toFixed(1)}% (the share of qualified applicants among the eligible applicants the model learned from). Green bars raised the chance, red bars lowered it.</p>
       <ul>{shown.map((item, index) => <li key={item.feature} style={{ animationDelay: `${index * 40}ms` }}>
         <span className="ai-factor-label">{item.label}<small>{item.display_value}</small></span>
         <span className="ai-factor-track">
@@ -101,9 +125,7 @@ export default function AiExplanation({ applicationId, compact = false, onMore }
     </div>}
 
     <footer className="ai-foot">
-      {data.saved
-        ? <span>Last saved screening: <b>{data.saved.probability_percent.toFixed(1)}%</b> on {dateText(data.saved.screened_at)}.{data.inputs_changed_since_saved && <em> Application details changed since then — run screening again to save an updated result.</em>}</span>
-        : <span>Not screened yet. This is a live preview from the current application details; run screening to save it.</span>}
+      {savedText}
       {compact && onMore && <button type="button" className="ai-more" onClick={onMore}>See full breakdown</button>}
     </footer>
   </section>;

@@ -145,3 +145,11 @@
   .screening-reference-filters>select { flex-basis: 30%; }
   .screening-date-filter { flex-basis: 45%; }
 }
+
+/* Priority rank column: rank within the same program and year. */
+.screening-rank { display: flex; flex-direction: column; gap: 1px; line-height: 1.25; }
+.screening-rank strong { font-size: 13px; font-weight: 700; color: #14264a; font-variant-numeric: tabular-nums; }
+.screening-rank small { font-size: 11px; color: #667fa7; }
+.screening-rank.ranked strong { color: #115df4; }
+.screening-rank.not_eligible strong, .screening-rank.rescreen_needed strong { color: #996500; font-weight: 600; }
+.screening-rank.not_screened strong, .screening-rank.closed strong, .screening-rank.unavailable strong { color: #667fa7; font-weight: 500; }

@@ -32,6 +32,7 @@ from app.repositories.screening_result_repository import ScreeningResultReposito
 from app.services.application_service import ApplicationService
 from app.services.screening_persistence_service import ScreeningPersistenceService
 from app.services.ml_screening_service import evaluate_applicant
+from app.services.screening_ranking_service import rank_applications
 from database.connection import get_connection
 from app.ui.desktop import activity_store, auth_store
 
@@ -41,7 +42,7 @@ HOST, PORT = "127.0.0.1", 8765
 # Bump when the UI depends on new bridge behaviour, so an old bridge left
 # running is detected instead of silently returning incomplete data.
 # 2 = staff sign-in + per-action activity logging and attribution.
-API_VERSION = 2
+API_VERSION = 3
 
 ALLOWED_ORIGINS = {
     "http://127.0.0.1:1420",
@@ -140,7 +141,12 @@ def ai_explanation(application_id):
             "screening_id": latest["screening_id"],
             "screened_at": latest["screened_at"],
             "recommendation": latest["predicted_class"],
-            "probability_percent": round(float(latest["confidence_score"] or 0) * 100, 2),
+            "probability_percent": (
+                round(float(latest["confidence_score"]) * 100, 2)
+                if latest["confidence_score"] is not None
+                else None
+            ),
+            "eligible": details.get("eligible"),
             "fingerprint": details.get("screening_input_fingerprint"),
         }
 
@@ -150,7 +156,12 @@ def ai_explanation(application_id):
         "application_id": application_id,
         "model_version": service.artifact.get("model_version"),
         "model_metrics": service.artifact.get("metrics"),
-        "probability_percent": round(result["model_probability_percent"], 2),
+        "eligible": result["eligible"],
+        "probability_percent": (
+            round(result["model_probability_percent"], 2)
+            if result["model_probability_percent"] is not None
+            else None
+        ),
         "model_prediction": result["model_prediction"],
         "recommendation": result["predicted_class"],
         "baseline_percent": result["base_rate_percent"],
@@ -161,6 +172,41 @@ def ai_explanation(application_id):
         "mswd_threshold": result["mswd_threshold"],
         "saved": saved,
         "inputs_changed_since_saved": bool(saved and saved["fingerprint"] and saved["fingerprint"] != fingerprint),
+    }
+
+
+def screening_ranking():
+    """Priority rank of every active application within its program and year.
+
+    Uses each application's latest saved screening. Results from an older model
+    or from details that changed since screening are not ranked.
+    """
+    service = read_screening_service()
+    applications = ApplicationRepository.get_all()
+    latest = ScreeningResultRepository.get_latest_for_applications(
+        [int(application["application_id"]) for application in applications]
+    )
+
+    fingerprints = {}
+    for application in applications:
+        try:
+            fingerprints[int(application["application_id"])] = service.create_input_fingerprint(
+                application_screening_inputs(application)
+            )
+        except (TypeError, ValueError, KeyError):
+            # Incomplete details: the saved result can't be confirmed as current.
+            fingerprints[int(application["application_id"])] = ""
+
+    ranking = rank_applications(
+        applications,
+        latest,
+        str(service.artifact.get("model_version")),
+        fingerprints,
+    )
+
+    return {
+        "model_version": service.artifact.get("model_version"),
+        "items": list(ranking.values()),
     }
 
 
@@ -584,6 +630,9 @@ class Handler(BaseHTTPRequestHandler):
                     row["decided_by"] = maker["name"] if maker else None
                     row["decided_by_role"] = maker["role"] if maker else None
                 return self._send(200, {"items": items})
+
+            if path == "/api/screening-ranking":
+                return self._send(200, screening_ranking())
 
             if path == "/api/screening-results":
                 connection = get_connection()
