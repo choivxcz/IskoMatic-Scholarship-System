@@ -30,6 +30,7 @@ from app.repositories.scholarship_decision_repository import (
 )
 from app.repositories.screening_result_repository import ScreeningResultRepository
 from app.services.application_service import ApplicationService
+from app.services.decision_service import decision_choices, effective_stage
 from app.services.screening_persistence_service import ScreeningPersistenceService
 from app.services.ml_screening_service import evaluate_applicant
 from app.services.screening_ranking_service import rank_applications
@@ -629,7 +630,15 @@ class Handler(BaseHTTPRequestHandler):
                     maker = credit.get(f"decision:{int(row['decision_id'])}")
                     row["decided_by"] = maker["name"] if maker else None
                     row["decided_by_role"] = maker["role"] if maker else None
-                return self._send(200, {"items": items})
+                # Only applicants who completed an interview are decided here.
+                interviewed = ScholarshipDecisionRepository.get_interviewed_applications()
+                for row in interviewed:
+                    row["stage"] = effective_stage(row["application_status"], True)
+                    row["decision_choices"] = decision_choices(row["application_status"], True)
+                    maker = credit.get(f"decision:{int(row['decision_id'])}") if row.get("decision_id") else None
+                    row["decided_by"] = maker["name"] if maker else None
+                    row["decided_by_role"] = maker["role"] if maker else None
+                return self._send(200, {"items": items, "interviewed": interviewed})
 
             if path == "/api/screening-ranking":
                 return self._send(200, screening_ranking())
@@ -783,16 +792,26 @@ class Handler(BaseHTTPRequestHandler):
                 if not application:
                     return self._send(404, {"error": "Application not found."})
                 current = str(application.get("status") or "").upper()
-                if decision not in ApplicationService.ALLOWED_TRANSITIONS.get(current, set()):
+                interview_completed = InterviewRepository.has_completed_interview(application_id)
+                choices = decision_choices(current, interview_completed)
+                if decision not in choices:
                     def pretty(value):
                         return value.replace("_", " ").title()
+                    if not choices:
+                        reason_text = (
+                            "it is already final" if current in {"APPROVED", "REJECTED", "WITHDRAWN"}
+                            else "its interview has not been completed yet"
+                        )
+                        return self._send(400, {"error": f"No decision can be recorded for this application: {reason_text} (currently {pretty(current)})."})
                     return self._send(400, {"error": (
-                        f"An application that is {pretty(current)} cannot be marked {pretty(decision)}. "
-                        "Decisions follow the review stages (for example Interviewed, then Recommended, then Approved)."
+                        f"An application that is {pretty(effective_stage(current, interview_completed))} can be marked "
+                        + " or ".join(pretty(choice) for choice in choices) + "."
                     )})
 
                 def record():
-                    decision_id = ScholarshipDecisionRepository.save(application_id, decision, reason, datetime.now())
+                    decision_id = ScholarshipDecisionRepository.save(
+                        application_id, decision, reason, datetime.now(), expected_status=current,
+                    )
                     return 201, {"ok": True, "decision_id": decision_id}, decision_id
 
                 return self._tracked(
