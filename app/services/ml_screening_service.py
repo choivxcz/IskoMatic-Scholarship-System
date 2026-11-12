@@ -1,17 +1,3 @@
-"""Scholarship screening: fixed eligibility rules first, then the ML model.
-
-Step 1 (rules, no AI): the office's eligibility rules are checked directly.
-An applicant who fails any rule is not scored by the model; staff confirm
-the result before any official action.
-
-Step 2 (ML): among applicants who pass every rule, a Random Forest estimates
-the chance of qualifying from need and merit factors. That chance is used to
-rank eligible applicants within the same program and year
-(see screening_ranking_service.py).
-
-Every result is advisory. The system never awards or rejects a scholarship.
-"""
-
 from pathlib import Path
 
 import joblib
@@ -41,13 +27,9 @@ MODEL_PATH = (
 
 MODEL_VERSION = "rf-2.0.0"
 
-# Eligibility rules (step 1). These are office policy, not model inputs.
 EXAM_PASSING_RATE = 0.8
 MINIMUM_AVERAGE_EXCLUSIVE = 75
 
-# Need and merit factors the model weighs for eligible applicants (step 2).
-# 4Ps, SPES, scholars in family and exam passed are decided by the rules,
-# so the model does not use them.
 FEATURES = [
     "AcademicAverage",
     "MonthlyIncome",
@@ -60,7 +42,6 @@ FEATURES = [
     "Dependent",
 ]
 
-# Columns needed to apply the eligibility rules to the training data.
 RULE_COLUMNS = [
     "ExamPassed",
     "4psBeneficiaries",
@@ -192,8 +173,6 @@ def eligibility_failures(average, exam_passed, fourps, spes, scholars):
 
 
 def eligible_rows(df):
-    """Boolean mask of dataset rows that pass every eligibility rule."""
-
     average = pd.to_numeric(df["AcademicAverage"], errors="raise")
     scholars = pd.to_numeric(df["ScholarsInFamily"], errors="raise")
 
@@ -277,12 +256,6 @@ def prepare_features(df):
 
 
 def load_training_data(csv_path=DEFAULT_CSV):
-    """
-    Read the dataset and keep only rule-eligible applicants.
-
-    Returns (X, y, summary). The model only ever scores eligible applicants,
-    so it is trained and tested on that same group.
-    """
 
     csv_path = Path(csv_path)
 
@@ -573,8 +546,6 @@ def evaluate_applicant(model, applicant):
         probabilities.get(1, 0.0)
     ) * 100
 
-    # Why the model leaned this way: per-feature contributions that add up
-    # exactly to `probability` (see ml_explainer.py).
     model_explanation = explain_prediction(model, row, FEATURES)
 
     return {
