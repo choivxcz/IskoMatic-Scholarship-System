@@ -168,8 +168,23 @@ class InterviewRepository:
             connection.close()
 
     @staticmethod
+    def has_completed_interview(application_id):
+        """True when the application has at least one completed interview."""
+        connection = get_connection()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT 1 FROM interviews WHERE application_id = %s AND status = 'COMPLETED' LIMIT 1",
+                    (application_id,),
+                )
+                return cursor.fetchone() is not None
+        finally:
+            connection.close()
+
+    @staticmethod
     def update_result(interview_id, result, remarks):
-        """Sets status='COMPLETED', result=<result>, remarks=<remarks>.
+        """Sets status='COMPLETED', result=<result>, remarks=<remarks>, and moves
+        the application from FOR_INTERVIEW to INTERVIEWED in the same transaction.
 
         Args:
             interview_id: The interview to update.
@@ -194,13 +209,24 @@ class InterviewRepository:
             SET status = 'COMPLETED', result = %s, remarks = %s
             WHERE interview_id = %s
         """
+        # The interview is done, so the application moves on to Interviewed
+        # (ready for an official decision). Later stages are left alone.
+        advance_application = """
+            UPDATE applications AS app
+            INNER JOIN interviews AS iv ON iv.application_id = app.application_id
+            SET app.status = 'INTERVIEWED'
+            WHERE iv.interview_id = %s AND app.status = 'FOR_INTERVIEW'
+        """
         connection = get_connection()
         try:
             with connection.cursor() as cursor:
-                cursor.execute(query, (result, remarks, interview_id))
-                updated = cursor.rowcount > 0
+                cursor.execute("SELECT 1 FROM interviews WHERE interview_id = %s", (interview_id,))
+                found = cursor.fetchone() is not None
+                if found:
+                    cursor.execute(query, (result, remarks, interview_id))
+                    cursor.execute(advance_application, (interview_id,))
             connection.commit()
-            return updated
+            return found
         except Exception:
             connection.rollback()
             raise

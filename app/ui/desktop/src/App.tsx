@@ -52,7 +52,7 @@ const requestedView = new URLSearchParams(window.location.search).get("view") ||
 const initialPage: PageKey = !requestedView && ["Overview", "Applicants", "Applications", "AI Screening", "Interviews", "Decisions"].includes(localStorage.getItem("iskolar-landing") || "") ? localStorage.getItem("iskolar-landing") as PageKey : requestedView === "activity" ? "Activity Log" : requestedView === "settings" ? "Settings" : requestedView === "decisions" ? "Decisions" : requestedView === "interviews" ? "Interviews" : requestedView === "screening" ? "AI Screening" : requestedView === "applications" ? "Applications" : requestedView === "applicants" ? "Applicants" : "Overview";
 const API = "http://127.0.0.1:8765/api";
 // Must match API_VERSION in bridge_server.py.
-const REQUIRED_API_VERSION = 2;
+const REQUIRED_API_VERSION = 3;
 
 const nav: { label: PageKey; icon: typeof LayoutDashboard; group: string }[] = [
   { label: "Overview", icon: LayoutDashboard, group: "WORKSPACE" },
@@ -93,11 +93,12 @@ const statusTone = (v: unknown) => {
 };
 
 const statusOptions = STATUSES.map(s => ({ label: nice(s), value: s }));
-// Official decisions allowed from each stage (mirrors ApplicationService.ALLOWED_TRANSITIONS).
+// Fallback only: rows from the Decisions page carry their own `decision_choices`
+// from the bridge (app/services/decision_service.py).
 const DECISION_OPTIONS: Record<string, string[]> = {
-  UNDER_REVIEW: ["REJECTED", "WAITLISTED"],
-  INTERVIEWED: ["REJECTED", "WAITLISTED"],
-  RECOMMENDED: ["APPROVED", "REJECTED", "WAITLISTED"],
+  UNDER_REVIEW: ["WAITLISTED", "REJECTED"],
+  INTERVIEWED: ["APPROVED", "WAITLISTED", "REJECTED"],
+  RECOMMENDED: ["APPROVED", "WAITLISTED", "REJECTED"],
   WAITLISTED: ["APPROVED", "REJECTED"],
 };
 // Santa Cruz municipal barangay directory: https://www.sbstacruz.com/aboutUs
@@ -244,6 +245,8 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
   const [rows, setRows] = useState<Row[]>([]);
   const [applicantFocus, setApplicantFocus] = useState<number | null>(null);
   const [allApplications, setAllApplications] = useState<Row[]>([]);
+  // Interviewed applications shown on the Decisions page, with the decisions each one allows.
+  const [decisionQueue, setDecisionQueue] = useState<Row[]>([]);
   const [screeningFailures, setScreeningFailures] = useState<Record<string, string>>({});
   const [academicYears, setAcademicYears] = useState<string[]>([]);
   const [applicationOptions, setApplicationOptions] = useState<{ label: string; value: string }[]>([]);
@@ -258,7 +261,7 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
   const [toast, setToast] = useState("");
   // Clear the previous page's data in the same render as the switch, so a page never sees another page's rows.
   const setPage = (next: PageKey) => {
-    if (next !== page) { setRows([]); setDashboard(null); setAllApplications([]); setLoading(true); }
+    if (next !== page) { setRows([]); setDashboard(null); setAllApplications([]); setDecisionQueue([]); setLoading(true); }
     setPageState(next);
   };
   const [latestBatch, setLatestBatch] = useState<{ at: string; count: number } | null>(null);
@@ -328,6 +331,7 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
         };
 
         const result = await request<any>(endpoint[page]);
+        if (page === "Decisions") setDecisionQueue(result.interviewed || []);
         setRows(
           page === "Interviews"
             ? [
@@ -498,25 +502,29 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
       setToast("Only Administrators can record official decisions.");
       return;
     }
-    const statusOf = (r: Row) => String(r.application_status || r.status || "").toUpperCase();
-    if (row && !DECISION_OPTIONS[statusOf(row)]) {
-      setToast(`This application is ${nice(statusOf(row))}. A decision can be recorded once it is Under Review, Interviewed, Recommended or Waitlisted.`);
+    const statusOf = (r: Row) => String(r.stage || r.application_status || r.status || "").toUpperCase();
+    const choicesOf = (r: Row): string[] => Array.isArray(r.decision_choices) ? r.decision_choices : DECISION_OPTIONS[statusOf(r)] || [];
+    if (row && !choicesOf(row).length) {
+      setToast(["APPROVED", "REJECTED", "WITHDRAWN"].includes(statusOf(row))
+        ? `${nameOf(row)} already has a final status (${nice(statusOf(row))}). It cannot be changed here.`
+        : `${nameOf(row)} is ${nice(statusOf(row))}. A decision can be recorded after the interview result is saved.`);
       return;
     }
-    const eligible = allApplications.filter(a => DECISION_OPTIONS[statusOf(a)]);
-    if (!row && !eligible.length) {
-      setToast("No applications are ready for an official decision yet.");
+    const waiting = decisionQueue.filter(a => choicesOf(a).length);
+    if (!row && !waiting.length) {
+      setToast("No interviewed applicants are waiting for a decision.");
       return;
     }
-    const choices = row ? DECISION_OPTIONS[statusOf(row)] : ["APPROVED", "REJECTED", "WAITLISTED"];
+    const choices = row ? choicesOf(row) : ["APPROVED", "WAITLISTED", "REJECTED"];
+    const interview = (r: Row) => r.interview_result ? `interview ${nice(r.interview_result).toLowerCase()}` : "interviewed";
     setForm({
       mode: "decision",
       title: "Record official decision",
       subtitle: row
-        ? `${nameOf(row)} · currently ${nice(statusOf(row))}. This decision is saved under your name in the Activity Log.`
-        : "Choose an application that has finished review. This decision is saved under your name in the Activity Log.",
+        ? `${nameOf(row)} · ${nice(statusOf(row))}, ${interview(row)}. This decision is saved under your name in the Activity Log.`
+        : "Choose an interviewed applicant. This decision is saved under your name in the Activity Log.",
       fields: [
-        ...(!row ? [{ key: "application_id", label: "Application", type: "select" as const, required: true, options: eligible.map(a => ({ label: `${a.reference_no || `APP-${a.application_id}`} · ${nameOf(a)} (${nice(statusOf(a))})`, value: String(a.application_id) })) }] : []),
+        ...(!row ? [{ key: "application_id", label: "Applicant", type: "select" as const, required: true, options: waiting.map(a => ({ label: `${a.reference_no || `APP-${a.application_id}`} · ${nameOf(a)} (${nice(statusOf(a))}, ${interview(a)})`, value: String(a.application_id) })) }] : []),
         { key: "decision", label: "Decision", type: "select", required: true, options: choices.map(value => ({ label: nice(value), value })) },
         { key: "reason", label: "Remarks / basis for the decision", type: "textarea", required: true, placeholder: "At least 10 characters. Applicants and auditors may rely on this explanation." },
       ],
@@ -724,7 +732,7 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
             : page === "Applications" ? <ApplicationsPage rows={rows} loading={loading} search={search} setSearch={setSearch} refresh={refresh} onScreen={openScreening} onSchedule={openSchedule} onEdit={openApplicationEdit} onStatus={openStatus} onProfile={applicantId => { setApplicantFocus(applicantId); setSearch(""); setPage("Applicants"); }} />
             : page === "AI Screening" ? <ScreeningPage latestBatch={latestBatch} applications={allApplications} results={rows} failures={screeningFailures} loading={loading} search={search} setSearch={setSearch} refresh={refresh} onScreen={openScreening} onSchedule={openSchedule} onReviewStage={openStatus} onEndorse={openEndorsement} />
             : page === "Interviews" ? <InterviewsPage rows={rows} applications={allApplications} loading={loading} onSchedule={openSchedule} onResult={openInterviewResult} />
-            : page === "Decisions" ? <DecisionsPage decisions={rows} applications={allApplications} loading={loading} refresh={refresh} onDecision={openDecision} canDecide={user.role === "ADMIN"} />
+            : page === "Decisions" ? <DecisionsPage decisions={rows} interviewed={decisionQueue} loading={loading} refresh={refresh} onDecision={openDecision} canDecide={user.role === "ADMIN"} />
             : <DataPage
                 page={page}
                 rows={rows}

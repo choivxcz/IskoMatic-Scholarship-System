@@ -558,3 +558,10 @@ html[data-theme="dark"] .app-shell .interview-badge.purple { background: #30234e
 html[data-theme="dark"] .app-shell .interview-badge.amber { background: #41351c; color: #f5d586; }
 html[data-theme="dark"] .app-shell .interview-badge.red { background: #452330; color: #ffb6c4; }
 html[data-theme="dark"] .app-shell .interview-badge.neutral { background: #243247; color: #c1cede; }
+
+/* Decisions page: per-row Decide button beside View. */
+.decision-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.decision-decide { display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 10px; font-size: 12px; white-space: nowrap; }
+.decision-decide:disabled { opacity: .55; cursor: not-allowed; }
+.decision-table td small { display: block; color: #667fa7; font-size: 11px; }
+.decision-table th:last-child { width: 16%; }
