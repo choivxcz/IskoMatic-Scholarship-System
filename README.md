@@ -56,6 +56,13 @@ A trained model is included in `models/`. To retrain it from `isko.csv`:
 python train_ml_model.py
 ```
 
+`isko.csv` is synthetic and is produced by `generate_dataset.py` (seeded, so it is reproducible). A student is labeled qualified only when they pass every eligibility rule and their weighted rubric score, plus random reviewer variation, reaches the cutoff that qualifies about half of eligible students. The MSWDO poverty flag is calculated with the same formula the app uses. See the docstring in `generate_dataset.py` for details. To regenerate the data and retrain:
+
+```bash
+python generate_dataset.py
+python train_ml_model.py
+```
+
 To evaluate the saved model (confusion matrix, accuracy, precision, recall, specificity, F1, ROC-AUC, 5-fold cross-validation and feature importance) on the held-out test rows:
 
 ```bash
@@ -89,6 +96,7 @@ models/              Saved Random Forest model (versioned)
 tests/               Repository, service, and screening tests
 schema.sql           Database schema
 isko.csv             Synthetic training data
+generate_dataset.py  Generates isko.csv
 train_ml_model.py    Trains the model and saves it with its evaluation metrics
 ```
 

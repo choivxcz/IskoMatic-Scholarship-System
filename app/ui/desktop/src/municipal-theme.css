@@ -565,3 +565,9 @@ html[data-theme="dark"] .app-shell .interview-badge.neutral { background: #24324
 .decision-decide:disabled { opacity: .55; cursor: not-allowed; }
 .decision-table td small { display: block; color: #667fa7; font-size: 11px; }
 .decision-table th:last-child { width: 16%; }
+
+/* Edit inputs: heading and button on one row in the screening Inputs/Analysis tab */
+.screening-inputs-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:12px; }
+.screening-inputs-head h3 { margin:0; }
+.screening-inputs-head .screening-outline-button { font-size:12px; padding:6px 12px; gap:6px; }
+.screening-outline-button:disabled { opacity:.5; cursor:not-allowed; }

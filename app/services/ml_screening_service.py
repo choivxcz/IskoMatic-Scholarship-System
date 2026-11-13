@@ -25,7 +25,7 @@ MODEL_PATH = (
     / "scholarship_random_forest.joblib"
 )
 
-MODEL_VERSION = "rf-2.0.0"
+MODEL_VERSION = "rf-3.0.0"
 
 EXAM_PASSING_RATE = 0.8
 MINIMUM_AVERAGE_EXCLUSIVE = 75

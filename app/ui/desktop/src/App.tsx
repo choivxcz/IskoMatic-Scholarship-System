@@ -233,6 +233,27 @@ const applicationEditFields: Field[] = [
   { key: "exam_total_items", label: "Exam total items", type: "number", required: true, min: 1 },
 ];
 
+// The inputs the AI screening uses, editable from the AI Screening page.
+const screeningInputFields: Field[] = [
+  { key: "academic_average", label: "Academic average", type: "number", required: true, min: 0, max: 100, step: "0.01", section: "Merit & exam" },
+  { key: "exam_raw_score", label: "Exam raw score", type: "number", required: true, min: 0, section: "Merit & exam" },
+  { key: "exam_total_items", label: "Exam total items", type: "number", required: true, min: 1, section: "Merit & exam" },
+  { key: "monthly_income", label: "Monthly household income (₱)", type: "number", required: true, min: 0, step: "0.01", section: "Household & income" },
+  { key: "household", label: "Household size", type: "number", required: true, min: 1, section: "Household & income" },
+  { key: "children_count", label: "Children in household", type: "number", required: true, min: 0, section: "Household & income" },
+  { key: "senior_count", label: "Seniors in household", type: "number", required: true, min: 0, section: "Household & income" },
+  { key: "pwd_count", label: "PWDs in household", type: "number", required: true, min: 0, section: "Household & income" },
+  { key: "dependents_count", label: "Number of dependents", type: "number", required: true, min: 0, section: "Household & income" },
+  { key: "solo_parent", label: "Solo parent household", type: "checkbox", section: "Household & income" },
+  { key: "four_ps_beneficiary", label: "4Ps beneficiary", type: "checkbox", section: "Eligibility rules" },
+  { key: "spes_beneficiary", label: "SPES beneficiary", type: "checkbox", section: "Eligibility rules" },
+  { key: "scholars_in_family", label: "Other scholars in family", type: "number", required: true, min: 0, section: "Eligibility rules" },
+  { key: "rerun_screening", label: "Run AI screening again after saving", type: "checkbox", section: "After saving" },
+];
+
+// Fields that only steer the dialog and are never sent as application data.
+const dialogOnlyKeys = new Set(["rerun_screening"]);
+
 export default function App({ user, onLogout }: { user: StaffUser; onLogout: () => Promise<void> | void }) {
   const [page, setPageState] = useState<PageKey>(initialPage);
   const [mobileNav, setMobileNav] = useState(false);
@@ -427,6 +448,17 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
     });
   }
 
+  function openScreeningInputsEdit(row: Row) {
+    setForm({
+      mode: "editScreeningInputs",
+      title: "Edit screening inputs",
+      subtitle: `Correct the details the AI screening uses for ${nameOf(row)} (${row.reference_no || `APP-${row.application_id}`}). Saving makes the previous AI result outdated; it is kept in the history.`,
+      fields: screeningInputFields,
+      initial: { ...row, rerun_screening: true },
+      row,
+    });
+  }
+
   function openStatus(row: Row) {
     setForm({
       mode: "status",
@@ -572,8 +604,10 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
       } else if (form.mode === "editApplicant") {
         await put(`/applicants/${form.row?.applicant_id}`, values);
         setToast("Applicant profile updated.");
-      } else if (form.mode === "editApplication") {
-        const payload: Row = { ...values };
+      } else if (form.mode === "editApplication" || form.mode === "editScreeningInputs") {
+        // Send only the fields shown in the dialog, so an edit is never logged as a status change.
+        const payload: Row = {};
+        form.fields.filter(f => !dialogOnlyKeys.has(f.key)).forEach(f => { payload[f.key] = values[f.key]; });
         ["scholarship_year", "household", "children_count", "senior_count", "pwd_count", "dependents_count", "scholars_in_family", "exam_raw_score", "exam_total_items"]
           .forEach(k => {
             if (payload[k] !== undefined && payload[k] !== null && payload[k] !== "") payload[k] = Number(payload[k]);
@@ -582,7 +616,20 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
         if (payload.monthly_income !== undefined) payload.monthly_income = Number(payload.monthly_income);
 
         await put(`/applications/${form.row?.application_id}`, payload);
-        setToast("Application updated.");
+        if (form.mode === "editScreeningInputs" && values.rerun_screening) {
+          const applicationId = form.row?.application_id;
+          try {
+            await post("/screening", { application_id: Number(applicationId) });
+            setScreeningFailures(previous => { const next = { ...previous }; delete next[String(applicationId)]; return next; });
+            setToast("Inputs saved and AI screening run again. Advisory only; official stage unchanged.");
+          } catch (screeningError) {
+            const message = screeningError instanceof Error ? screeningError.message : "Screening failed";
+            setScreeningFailures(previous => ({ ...previous, [String(applicationId)]: message }));
+            setToast("Inputs saved, but the new screening failed. Run screening again from the details panel.");
+          }
+        } else {
+          setToast(form.mode === "editScreeningInputs" ? "Inputs saved. Run screening again to update the AI result." : "Application updated.");
+        }
       } else if (form.mode === "status") {
         await put(`/applications/${form.row?.application_id}`, { status: values.status });
         setToast("Application status updated.");
@@ -730,7 +777,7 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
             ? <OverviewPage data={dashboard} loading={loading} onOpen={setPage} />
             : page === "Applicants" ? <ApplicantsPage initialSelectedId={applicantFocus} sourceRows={rows} loading={loading} search={search} setSearch={setSearch} refresh={refresh} onEdit={openApplicantEdit} onArchive={archiveApplicant} />
             : page === "Applications" ? <ApplicationsPage rows={rows} loading={loading} search={search} setSearch={setSearch} refresh={refresh} onScreen={openScreening} onSchedule={openSchedule} onEdit={openApplicationEdit} onStatus={openStatus} onProfile={applicantId => { setApplicantFocus(applicantId); setSearch(""); setPage("Applicants"); }} />
-            : page === "AI Screening" ? <ScreeningPage latestBatch={latestBatch} applications={allApplications} results={rows} failures={screeningFailures} loading={loading} search={search} setSearch={setSearch} refresh={refresh} onScreen={openScreening} onSchedule={openSchedule} onReviewStage={openStatus} onEndorse={openEndorsement} />
+            : page === "AI Screening" ? <ScreeningPage latestBatch={latestBatch} applications={allApplications} results={rows} failures={screeningFailures} loading={loading} search={search} setSearch={setSearch} refresh={refresh} onScreen={openScreening} onSchedule={openSchedule} onReviewStage={openStatus} onEndorse={openEndorsement} onEditInputs={openScreeningInputsEdit} />
             : page === "Interviews" ? <InterviewsPage rows={rows} applications={allApplications} loading={loading} onSchedule={openSchedule} onResult={openInterviewResult} />
             : page === "Decisions" ? <DecisionsPage decisions={rows} interviewed={decisionQueue} loading={loading} refresh={refresh} onDecision={openDecision} canDecide={user.role === "ADMIN"} />
             : <DataPage
@@ -1024,6 +1071,14 @@ function FormModal({ form, closing = false, busy, serverError, onClose, onSubmit
       return false;
     }
 
+    if (fields.some(f => f.key === "household") && fields.some(f => f.key === "children_count")) {
+      const members = Number(values.children_count || 0) + Number(values.senior_count || 0) + Number(values.pwd_count || 0);
+      if (members > Number(values.household)) {
+        setError("Children, seniors and PWDs together cannot exceed the household size.");
+        return false;
+      }
+    }
+
     setError("");
     return true;
   }
@@ -1131,7 +1186,7 @@ function FormModal({ form, closing = false, busy, serverError, onClose, onSubmit
           </button>
           <button className="primary-button" disabled={busy}>
             {busy ? <LoaderCircle size={16} className="spin" /> : null}
-            {busy ? "Saving…" : wizard && step < grouped.length - 1 ? "Next" : ({ archive: "Archive applicant", status: "Save status", editApplicant: "Save profile", editApplication: "Save application", screen: "Run screening", batchScreen: "Run screening", schedule: "Schedule interview", interviewResult: "Save interview result", register: "Register applicant", decision: "Record decision" }[form.mode] || "Save changes")}
+            {busy ? "Saving…" : wizard && step < grouped.length - 1 ? "Next" : ({ archive: "Archive applicant", status: "Save status", editApplicant: "Save profile", editApplication: "Save application", editScreeningInputs: "Save inputs", screen: "Run screening", batchScreen: "Run screening", schedule: "Schedule interview", interviewResult: "Save interview result", register: "Register applicant", decision: "Record decision" }[form.mode] || "Save changes")}
           </button>
         </div>
 
