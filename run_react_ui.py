@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parent
 DESKTOP = ROOT / "app" / "ui" / "desktop"
 UI_URL = "http://127.0.0.1:1420"
 HEALTH_URL = "http://127.0.0.1:8765/api/health"
-REQUIRED_API_VERSION = 3  # must match API_VERSION in bridge_server.py
+REQUIRED_API_VERSION = 6  # must match API_VERSION in bridge_server.py
 
 
 def wait_for(url, seconds):

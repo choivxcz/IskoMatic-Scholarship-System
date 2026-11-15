@@ -17,7 +17,7 @@ def get_connection():
             port=int(os.getenv("DB_PORT", "3306")),
             user=os.environ["DB_USER"],
             password=os.environ["DB_PASSWORD"],
-            database="iskolar_ng_bayan",
+            database=os.getenv("DB_NAME", "iskolar_ng_bayan"),
             connection_timeout=10,
         )
 

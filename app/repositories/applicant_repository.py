@@ -58,13 +58,18 @@ class ApplicantRepository:
 
     @staticmethod
     def _validate_phone(phone):
+        """Philippine mobile numbers in international format only: +63 then 10 digits
+        starting with 9 (12 digits in total), e.g. +639171234567.
+        Spaces and dashes are ignored, and the number is stored without them."""
         if not isinstance(phone, str) or not phone.strip():
             raise ValueError("Phone number is required.")
 
-        phone = phone.strip()
-        digits = re.sub(r"\D", "", phone)
-        if not 7 <= len(digits) <= 15:
-            raise ValueError("Phone number must contain 7 to 15 digits.")
+        phone = re.sub(r"[\s-]", "", phone)
+        if not re.fullmatch(r"\+639\d{9}", phone):
+            raise ValueError(
+                "Phone number must be in international format: +63 followed by "
+                "the 10-digit mobile number (e.g. +639171234567)."
+            )
         return phone
 
     @staticmethod

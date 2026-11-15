@@ -5,8 +5,8 @@ from database.connection import get_connection
 
 class ApplicationService:
     ALLOWED_TRANSITIONS = {
-        "DRAFT": {"SUBMITTED", "FOR_INTERVIEW", "WITHDRAWN"},
-        "SUBMITTED": {"UNDER_REVIEW", "FOR_INTERVIEW", "WITHDRAWN"},
+        "DRAFT": {"SUBMITTED", "FOR_INTERVIEW", "REJECTED", "WITHDRAWN"},
+        "SUBMITTED": {"UNDER_REVIEW", "FOR_INTERVIEW", "REJECTED", "WITHDRAWN"},
         "UNDER_REVIEW": {
             "FOR_INTERVIEW", "REJECTED", "WAITLISTED", "WITHDRAWN"
         },
@@ -17,9 +17,40 @@ class ApplicationService:
         "RECOMMENDED": {"APPROVED", "REJECTED", "WAITLISTED"},
         "WAITLISTED": {"APPROVED", "REJECTED", "WITHDRAWN"},
         "APPROVED": set(),
-        "REJECTED": set(),
+        # A review-stage rejection can be reopened by staff; a rejection recorded
+        # as an official decision cannot (see change_status).
+        "REJECTED": {"UNDER_REVIEW"},
         "WITHDRAWN": set(),
     }
+
+    # Stages before the interview, where staff may reject from the Applications page.
+    REVIEW_STAGES = frozenset({"DRAFT", "SUBMITTED", "UNDER_REVIEW"})
+
+    @staticmethod
+    def has_official_decision(application_id):
+        """True when an official decision has been recorded for the application."""
+        connection = get_connection()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT 1 FROM scholarship_decisions WHERE application_id = %s LIMIT 1",
+                    (application_id,),
+                )
+                return cursor.fetchone() is not None
+        finally:
+            connection.close()
+
+    @staticmethod
+    def reopen_blocked_reason(application_id, current_status, new_status):
+        """Why a rejected application may not be reopened, or None if it may."""
+        if (
+            current_status == "REJECTED"
+            and new_status != "REJECTED"
+            and ApplicationService.has_official_decision(application_id)
+        ):
+            return ("This rejection was recorded as an official decision after the "
+                    "interview and is final.")
+        return None
 
     @staticmethod
     def mswdo_threshold(household, children, seniors, pwds):
@@ -299,6 +330,12 @@ class ApplicationService:
                 f"Cannot change application status from "
                 f"{current_status} to {new_status}."
             )
+
+        blocked = ApplicationService.reopen_blocked_reason(
+            application_id, current_status, new_status
+        )
+        if blocked:
+            raise ValueError(blocked)
 
         return ApplicationRepository.update(
             application_id,

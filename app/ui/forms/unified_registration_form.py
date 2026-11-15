@@ -94,7 +94,8 @@ class UnifiedRegistrationForm(QDialog):
         self.email.setPlaceholderText("Enter email address")
 
         self.phone = QLineEdit()
-        self.phone.setPlaceholderText("Enter phone number")
+        self.phone.setPlaceholderText("+639XXXXXXXXX")
+        self.phone.setMaxLength(13)  # "+" plus 12 digits
 
         self.house_no_street = QLineEdit()
         self.house_no_street.setPlaceholderText(
@@ -439,13 +440,13 @@ class UnifiedRegistrationForm(QDialog):
             self.email.setFocus()
             return
 
-        phone = self.phone.text().strip()
-        phone_digits = re.sub(r"\D", "", phone)
-        if len(phone_digits) < 7 or len(phone_digits) > 15:
+        phone = re.sub(r"[\s-]", "", self.phone.text())
+        if not re.fullmatch(r"\+639\d{9}", phone):
             QMessageBox.warning(
                 self,
                 "Validation Error",
-                "Please enter a valid phone number (7 to 15 digits).",
+                "Phone number must be in international format: +63 followed by "
+                "the 10-digit mobile number (e.g. +639171234567).",
             )
             self.phone.setFocus()
             return

@@ -31,6 +31,7 @@ from app.repositories.scholarship_decision_repository import (
 from app.repositories.screening_result_repository import ScreeningResultRepository
 from app.services.application_service import ApplicationService
 from app.services.decision_service import decision_choices, effective_stage
+from app.services.export_service import finalized_records
 from app.services.screening_persistence_service import ScreeningPersistenceService
 from app.services.ml_screening_service import evaluate_applicant
 from app.services.screening_ranking_service import rank_applications
@@ -43,7 +44,11 @@ HOST, PORT = "127.0.0.1", 8765
 # Bump when the UI depends on new bridge behaviour, so an old bridge left
 # running is detected instead of silently returning incomplete data.
 # 2 = staff sign-in + per-action activity logging and attribution.
-API_VERSION = 3
+API_VERSION = 6
+
+# Roles that may record official scholarship decisions (must match DECISION_ROLES in App.tsx).
+# Approving staff accounts stays Administrator-only.
+DECISION_ROLES = {"ADMIN", "LYDO_OFFICIAL"}
 
 ALLOWED_ORIGINS = {
     "http://127.0.0.1:1420",
@@ -640,6 +645,19 @@ class Handler(BaseHTTPRequestHandler):
                     row["decided_by_role"] = maker["role"] if maker else None
                 return self._send(200, {"items": items, "interviewed": interviewed})
 
+            if path == "/api/exports/finalized":
+                # Finalized records only: screened, interviewed and officially decided.
+                # The export contains personal data, so it is logged under the staff member.
+                def export_finalized():
+                    rows = finalized_records()
+                    credit = activity_store.attributions()["entities"]
+                    for row in rows:
+                        maker = credit.get(f"decision:{int(row['decision_id'])}")
+                        row["decided_by"] = maker["name"] if maker else None
+                    return 200, {"items": rows}, None
+
+                return self._tracked(user, "EXPORT_FINALIZED", "export", None, {}, export_finalized)
+
             if path == "/api/screening-ranking":
                 return self._send(200, screening_ranking())
 
@@ -777,10 +795,10 @@ class Handler(BaseHTTPRequestHandler):
                 )
 
             if path == "/api/decisions":
-                # Official decisions: Administrators only, remarks required,
-                # and only along the allowed status transitions.
-                if user["role"] != "ADMIN":
-                    return self._send(403, {"error": "Only Administrators can record official scholarship decisions."})
+                # Official decisions: LYDO Officials and Administrators, remarks
+                # required, and only along the allowed status transitions.
+                if user["role"] not in DECISION_ROLES:
+                    return self._send(403, {"error": "Only LYDO Officials and Administrators can record official scholarship decisions."})
                 application_id = int(data.get("application_id", 0))
                 decision = str(data.get("decision", "")).strip().upper()
                 reason = str(data.get("reason", "")).strip()
@@ -950,12 +968,21 @@ class Handler(BaseHTTPRequestHandler):
                         )
 
                     requested_status = str(data["status"]).strip().upper()
-                    if requested_status in {"APPROVED", "REJECTED", "WAITLISTED"}:
-                        return self._send(403, {"error": "Use Record decision to save an official decision with required remarks and accountable history."})
                     current_status = str(
                         current_app.get("status") or ""
                     ).upper()
                     previous_status = current_status
+                    # Approved/Waitlisted are official decisions. Rejected is allowed here
+                    # only during review (before the interview); after the interview it is
+                    # an official decision recorded with remarks on the Decisions page.
+                    if requested_status in {"APPROVED", "WAITLISTED"} or (
+                        requested_status == "REJECTED"
+                        and current_status not in ApplicationService.REVIEW_STAGES | {"REJECTED"}
+                    ):
+                        return self._send(403, {"error": "Use Record decision to save an official decision with required remarks and accountable history."})
+                    blocked = ApplicationService.reopen_blocked_reason(application_id, current_status, requested_status)
+                    if blocked:
+                        return self._send(403, {"error": blocked})
 
                     allowed_transitions = (
                         ApplicationService.ALLOWED_TRANSITIONS.get(
@@ -1051,6 +1078,10 @@ class Handler(BaseHTTPRequestHandler):
 
                 if requested_status == "FOR_INTERVIEW" and previous_status != "FOR_INTERVIEW":
                     action = "ENDORSE_FOR_INTERVIEW"
+                elif requested_status == "REJECTED" and previous_status != "REJECTED":
+                    action = "REJECT_APPLICATION"
+                elif previous_status == "REJECTED" and requested_status and requested_status != "REJECTED":
+                    action = "REOPEN_APPLICATION"
                 elif requested_status:
                     action = "CHANGE_STATUS"
                 else:

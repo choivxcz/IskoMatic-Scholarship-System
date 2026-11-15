@@ -1,0 +1,70 @@
+/* Paired foregrounds and surfaces keep semantic icons legible in dark mode.
+   Loaded last so page-specific light colors cannot override these pairs. */
+html[data-theme="dark"] .app-shell {
+  --icon-blue: #a8caff;
+  --icon-green: #8ee6bc;
+  --icon-amber: #f5d586;
+  --icon-purple: #cbb6ff;
+  --icon-red: #ffb6c4;
+}
+
+html[data-theme="dark"] .app-shell :is(.reference-icon, .reference-task-icon, .metric-summary-icon, .stat-icon, .panel-icon, .interview-section-icon) {
+  color: var(--icon-blue);
+  background: #17375a;
+}
+
+html[data-theme="dark"] .app-shell :is(.reference-icon, .reference-task-icon, .metric-summary-icon, .stat-icon):is(.green) {
+  color: var(--icon-green);
+  background: #123c32;
+}
+
+html[data-theme="dark"] .app-shell :is(.reference-icon, .reference-task-icon, .metric-summary-icon, .stat-icon):is(.orange, .amber) {
+  color: var(--icon-amber);
+  background: #41351c;
+}
+
+html[data-theme="dark"] .app-shell :is(.reference-icon, .reference-task-icon, .metric-summary-icon, .stat-icon):is(.purple, .violet),
+html[data-theme="dark"] .app-shell .screening-factor-icon {
+  color: var(--icon-purple);
+  background: #30234e;
+}
+
+html[data-theme="dark"] .app-shell :is(.reference-icon, .reference-task-icon, .metric-summary-icon, .stat-icon).red {
+  color: var(--icon-red);
+  background: #452330;
+}
+
+html[data-theme="dark"] .app-shell .reference-activity-list .reference-task-icon {
+  color: var(--icon-green);
+  background: #123c32;
+}
+
+html[data-theme="dark"] .app-shell .reference-task-icon.slate {
+  color: #c1cede;
+  background: #243247;
+}
+
+/* Explicit SVG colors in page styles need their own overrides. */
+html[data-theme="dark"] .app-shell :is(.button-secondary, .screening-outline-button, .academic-year, .applicant-notice, .preferences-notice, .application-timeline, .overview-advisory) svg,
+html[data-theme="dark"] .app-shell :is(.reference-panel-heading > button, .applicant-view, .row-action, .ai-more, .screening-extra-menu > summary) {
+  color: var(--icon-blue);
+}
+
+html[data-theme="dark"] .app-shell :is(.search-box, .screening-reference-search, .interview-search, .screening-date-filter, .screening-reference-analysis > header > button) svg {
+  color: #b7c6d9;
+}
+
+html[data-theme="dark"] .app-shell .ai-rule-badge {
+  color: var(--icon-amber);
+  background: #41351c;
+}
+
+html[data-theme="dark"] .app-shell .screening-reference-advisory>svg {
+  color: var(--icon-blue);
+  fill: none;
+}
+
+html[data-theme="dark"] .app-shell .icon-button:hover svg,
+html[data-theme="dark"] .app-shell .button-secondary:hover:not(:disabled) svg {
+  color: #e2e8f0;
+}

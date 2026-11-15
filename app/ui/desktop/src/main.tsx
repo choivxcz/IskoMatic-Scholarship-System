@@ -23,6 +23,7 @@ import "./tracking.css";
 import "./ai-explanation.css";
 import "./auth.css";
 import "./motion.css";
+import "./dark-icons.css";
 
 initializeTheme();
 installInteractions();

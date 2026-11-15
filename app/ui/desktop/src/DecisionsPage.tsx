@@ -52,7 +52,7 @@ export default function DecisionsPage({ decisions, interviewed, loading, refresh
   const open = (row: Row) => { setSelectedId(row.application_id); setTab("Summary"); };
   const decideButton = (row: Row, primary = false) => {
     const choices = choicesOf(row);
-    const title = !canDecide ? "Only Administrators can record decisions" : choices.length ? `Record a decision: ${choices.map(value => label(value)).join(", ")}` : "This decision is final";
+    const title = !canDecide ? "Only LYDO Officials and Administrators can record decisions" : choices.length ? `Record a decision: ${choices.map(value => label(value)).join(", ")}` : "This decision is final";
     return <button className={primary ? "primary-button" : "button-secondary decision-decide"} disabled={!canDecide || !choices.length} title={title} onClick={() => onDecision(row)}>
       <Award size={15} />{choices.length ? (row.decision ? "Update decision" : primary ? "Record decision" : "Decide") : "Final"}
     </button>;
@@ -64,7 +64,7 @@ export default function DecisionsPage({ decisions, interviewed, loading, refresh
     <div className={`applicant-directory-layout ${selected ? "with-profile" : ""}`}>
       <section className="panel applicant-directory">
         <h2>Interviewed applicants</h2>
-        <p>{canDecide ? "Applicants appear here once their interview result is saved. Record each official decision with remarks; it is logged under your name." : "Applicants appear here once their interview result is saved. Only Administrators can record decisions."}</p>
+        <p>{canDecide ? "Applicants appear here once their interview result is saved. Record each official decision with remarks; it is logged under your name." : "Applicants appear here once their interview result is saved. Only LYDO Officials and Administrators can record decisions."}</p>
         <div className="applicant-search-row"><label className="search-box"><Search size={16} /><input aria-label="Search decision records" placeholder="Search application, applicant or decision maker…" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} /></label><button className="button-secondary" onClick={refresh} aria-label="Refresh decisions"><RefreshCw size={16} /></button></div>
         <div className="applicant-filters">
           <select aria-label="Decision" value={decision} onChange={e => { setDecision(e.target.value); setPage(1); }}><option value="">All decisions</option><option value="PENDING">Awaiting decision</option><option value="APPROVED">Approved</option><option value="WAITLISTED">Waitlisted</option><option value="REJECTED">Rejected</option></select>
@@ -99,14 +99,14 @@ export default function DecisionsPage({ decisions, interviewed, loading, refresh
               ["Interview result", label(selected.interview_result, "Not recorded")],
               ["Interview remarks", selected.interview_remarks || "None"],
               ["Academic average", selected.academic_average],
-              ["Decision maker", selected.decided_by ? `${selected.decided_by}${selected.decided_by_role === "ADMIN" ? " (Administrator)" : ""}` : selected.decision ? "Not recorded" : "—"],
+              ["Decision maker", selected.decided_by ? `${selected.decided_by}${selected.decided_by_role === "ADMIN" ? " (Administrator)" : selected.decided_by_role === "LYDO_OFFICIAL" ? " (LYDO Official)" : ""}` : selected.decision ? "Not recorded" : "—"],
               ["Decision date", selected.decision ? date(selected.decided_at) : "—"],
               ["Decision remarks", selected.reason || "—"],
             ].map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value ?? "Not recorded"}</dd></div>)}</dl></section>
             <div className="applicant-notice"><Info size={16} />{choicesOf(selected).length ? `Allowed now: ${choicesOf(selected).map(value => label(value)).join(", ")}.` : "This decision is final and cannot be changed here."}</div></>
           : <section className="applicant-detail-section"><h3>Recorded decisions</h3>{decisions.filter(row => Number(row.application_id) === selectedId).map((row, index) => <dl key={row.decision_id || index}><div><dt>Decision</dt><dd>{label(row.decision)}</dd></div><div><dt>Recorded</dt><dd>{date(row.decided_at)}</dd></div><div><dt>Decision maker</dt><dd>{row.decided_by || "Not recorded"}</dd></div><div><dt>Remarks</dt><dd>{row.reason || "Not recorded"}</dd></div></dl>)}{!selected.decision && <p>No official decision recorded yet.</p>}</section>}
         {decideButton(selected, true)}
-        <p>{canDecide ? "Your name, the decision and the previous stage are saved to the Activity Log." : "Read-only: only Administrators can record official decisions."}</p>
+        <p>{canDecide ? "Your name, the decision and the previous stage are saved to the Activity Log." : "Read-only: only LYDO Officials and Administrators can record official decisions."}</p>
       </aside>}
     </div>
   </div>;

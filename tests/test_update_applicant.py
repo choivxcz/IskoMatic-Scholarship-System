@@ -16,7 +16,7 @@ def test_update_applicant():
 
     updated = ApplicantRepository.update(
         applicant_id,
-        phone="09171234567",
+        phone="+639171234567",
     )
 
     applicant_after = ApplicantRepository.get_by_id(applicant_id)

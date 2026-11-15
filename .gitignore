@@ -41,3 +41,6 @@ app/ui/desktop/src-tauri/gen/
 
 # Generated model evaluation reports (python evaluate_ml_model.py)
 reports/
+
+# Remotion launch video render output
+docs/video/launch-video/out/

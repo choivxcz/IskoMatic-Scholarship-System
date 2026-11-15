@@ -21,7 +21,7 @@ def test_create_applicant():
         birth_date="2005-01-15",
         sex="MALE",
         email=unique_email,
-        phone="09171234567",
+        phone="+639171234567",
         house_no_street="123 Test Street",
         barangay="Poblacion",
         municipality="Santa Cruz",

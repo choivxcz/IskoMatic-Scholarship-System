@@ -21,7 +21,7 @@ import {
   Menu, Plus, RefreshCw, Search, Settings2, ShieldCheck, Sparkles, Users, X,
   BrainCircuit, AlertCircle, LoaderCircle, Pencil, Archive, CalendarPlus,
   ClipboardCheck, UserRoundPlus, ListChecks, Bell, ChevronDown, PanelLeftClose, Eye, EyeOff, UserRound, FolderCheck, Play,
-  LogOut,
+  LogOut, Download,
 } from "lucide-react";
 
 type Row = Record<string, any>;
@@ -52,7 +52,7 @@ const requestedView = new URLSearchParams(window.location.search).get("view") ||
 const initialPage: PageKey = !requestedView && ["Overview", "Applicants", "Applications", "AI Screening", "Interviews", "Decisions"].includes(localStorage.getItem("iskolar-landing") || "") ? localStorage.getItem("iskolar-landing") as PageKey : requestedView === "activity" ? "Activity Log" : requestedView === "settings" ? "Settings" : requestedView === "decisions" ? "Decisions" : requestedView === "interviews" ? "Interviews" : requestedView === "screening" ? "AI Screening" : requestedView === "applications" ? "Applications" : requestedView === "applicants" ? "Applicants" : "Overview";
 const API = "http://127.0.0.1:8765/api";
 // Must match API_VERSION in bridge_server.py.
-const REQUIRED_API_VERSION = 3;
+const REQUIRED_API_VERSION = 6;
 
 const nav: { label: PageKey; icon: typeof LayoutDashboard; group: string }[] = [
   { label: "Overview", icon: LayoutDashboard, group: "WORKSPACE" },
@@ -137,6 +137,55 @@ const post = (path: string, data: Row) =>
 const put = (path: string, data: Row) =>
   request(path, { method: "PUT", body: JSON.stringify(data) });
 
+// Stages before the interview, where staff may reject an application (must match ApplicationService.REVIEW_STAGES).
+const REVIEW_STAGES = new Set(["DRAFT", "SUBMITTED", "UNDER_REVIEW"]);
+
+// Roles that may record official scholarship decisions (must match DECISION_ROLES in bridge_server.py).
+const DECISION_ROLES = new Set(["ADMIN", "LYDO_OFFICIAL"]);
+
+// ---- Finalized-records CSV export ----
+// A cell that starts with = + - @ tab or CR is prefixed with an apostrophe so a
+// spreadsheet never runs it as a formula (CSV injection guard).
+const csvCell = (value: unknown) => {
+  const text = value == null ? "" : String(value);
+  return `"${(/^[=+\-@\t\r]/.test(text) ? "'" : "") + text.replace(/"/g, '""')}"`;
+};
+const yesNo = (value: unknown) => value == null || value === "" ? "" : [true, 1, "1", "true"].includes(value as never) ? "Yes" : "No";
+const words = (value: unknown) => value == null || value === "" ? "" : String(value).replace(/_/g, " ").toLowerCase().replace(/^\w/, c => c.toUpperCase());
+const csvDay = (value: unknown) => value ? String(value).slice(0, 10) : "";
+const csvTime = (value: unknown) => value ? String(value).replace("T", " ").slice(0, 16) : "";
+const FINALIZED_COLUMNS: [string, (row: Row) => unknown][] = [
+  ["Application ID", r => `APP-${r.application_id}`], ["Applicant ID", r => r.applicant_id],
+  ["Last name", r => r.last_name], ["First name", r => r.first_name], ["Middle name", r => r.middle_name], ["Suffix", r => r.suffix],
+  ["Sex", r => words(r.sex)], ["Birth date", r => csvDay(r.birth_date)], ["Email", r => r.email], ["Phone", r => r.phone],
+  ["House no. / street", r => r.house_no_street], ["Barangay", r => r.barangay], ["Municipality", r => r.municipality], ["Province", r => r.province],
+  ["Scholarship program", r => r.scholarship_program], ["Scholarship year", r => r.scholarship_year],
+  ["Academic average", r => r.academic_average], ["Entrance exam score (%)", r => r.exam_score], ["Monthly household income (PHP)", r => r.monthly_income],
+  ["Household size", r => r.household], ["Children", r => r.children_count], ["Seniors", r => r.senior_count], ["PWDs", r => r.pwd_count],
+  ["Solo parent", r => yesNo(r.solo_parent)], ["Within MSWDO poverty line", r => yesNo(r.mswdo_poverty_eligible)],
+  ["AI recommendation (advisory)", r => words(r.predicted_class)], ["Chance of qualifying (%)", r => r.chance_percent],
+  ["Screened at", r => csvTime(r.screened_at)], ["Model version", r => r.model_version],
+  ["Interview date", r => csvTime(r.interview_date)], ["Interview location", r => r.interview_location],
+  ["Interview result", r => words(r.interview_result)], ["Interview remarks", r => r.interview_remarks],
+  ["Official decision", r => words(r.decision)], ["Decision remarks", r => r.decision_reason],
+  ["Decided at", r => csvTime(r.decided_at)], ["Decided by", r => r.decided_by || "Not recorded"],
+  ["Applicant archived", r => yesNo(r.applicant_archived)],
+];
+
+function downloadFinalizedCsv(rows: Row[]) {
+  const lines = [
+    FINALIZED_COLUMNS.map(([header]) => csvCell(header)).join(","),
+    ...rows.map(row => FINALIZED_COLUMNS.map(([, read]) => csvCell(read(row))).join(",")),
+  ];
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+  const url = URL.createObjectURL(new Blob(["﻿", lines.join("\r\n")], { type: "text/csv;charset=utf-8" }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `finalized-scholarship-records-${today}.csv`;
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 const registrationFields: Field[] = [
   { key: "first_name", label: "First Name", required: true, section: "Applicant Details" },
   { key: "middle_name", label: "Middle Name", section: "Applicant Details" },
@@ -154,7 +203,7 @@ const registrationFields: Field[] = [
     section: "Applicant Details",
   },
   { key: "email", label: "Email", type: "email", required: true, placeholder: "name@example.com", section: "Contact & Address" },
-  { key: "phone", label: "Phone Number", type: "tel", required: true, placeholder: "Phone number (7?15 digits)", section: "Contact & Address" },
+  { key: "phone", label: "Phone Number", type: "tel", required: true, placeholder: "+639XXXXXXXXX", section: "Contact & Address" },
   { key: "house_no_street", label: "House No. / Street", required: true, section: "Contact & Address" },
   { key: "barangay", label: "Barangay", type: "select", required: true, options: barangayOptions, section: "Contact & Address" },
   { key: "municipality", label: "Municipality", required: true, section: "Contact & Address" },
@@ -204,7 +253,7 @@ const applicantEditFields: Field[] = [
     ],
   },
   { key: "email", label: "Email", type: "email", required: true },
-  { key: "phone", label: "Phone number", type: "tel", required: true },
+  { key: "phone", label: "Phone number", type: "tel", required: true, placeholder: "+639XXXXXXXXX" },
   { key: "house_no_street", label: "House no. / street", required: true },
   { key: "barangay", label: "Barangay", type: "select", required: true, options: barangayOptions },
   { key: "municipality", label: "Municipality", required: true },
@@ -280,6 +329,7 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
   const [formError, setFormError] = useState("");
   useEffect(() => setFormError(""), [form]);
   const [toast, setToast] = useState("");
+  const [exporting, setExporting] = useState(false);
   // Clear the previous page's data in the same render as the switch, so a page never sees another page's rows.
   const setPage = (next: PageKey) => {
     if (next !== page) { setRows([]); setDashboard(null); setAllApplications([]); setDecisionQueue([]); setLoading(true); }
@@ -396,8 +446,28 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
   const refresh = () => setRefreshKey(n => n + 1);
   const showError = (e: unknown) => setToast(e instanceof Error ? e.message : "The operation could not be completed.");
 
+  // Exports only finalized records: screened, interviewed and given an official decision.
+  async function exportFinalized() {
+    setExporting(true);
+    try {
+      const data = await request<{ items: Row[] }>("/exports/finalized");
+      const items = data.items || [];
+      if (!items.length) {
+        setToast("No finalized records yet. A record is finalized once it has a screening result, a completed interview and an official decision.");
+        return;
+      }
+      downloadFinalizedCsv(items);
+      setToast(`Exported ${items.length} finalized record${items.length === 1 ? "" : "s"}. The export is logged in the Activity Log.`);
+    } catch (e) {
+      showError(e);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   function openRegistration() {
     const initial: Row = {
+      phone: "+63",
       municipality: "Santa Cruz",
       province: "Laguna",
       sex: "PREFER_NOT_TO_SAY",
@@ -460,11 +530,22 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
   }
 
   function openStatus(row: Row) {
+    const current = String(row.status || "").toUpperCase();
+    const inReview = REVIEW_STAGES.has(current);
+    // Rejected is offered only during review; after the interview it is an official decision.
+    // A rejected application can only be reopened to Under Review.
+    const options = current === "REJECTED"
+      ? statusOptions.filter(s => ["REJECTED", "UNDER_REVIEW"].includes(s.value))
+      : statusOptions.filter(s => !["APPROVED", "WAITLISTED"].includes(s.value) && (s.value !== "REJECTED" || inReview));
     setForm({
       mode: "status",
-      title: "Change application status",
-      subtitle: "The existing ApplicationService validates allowed status transitions.",
-      fields: [{ key: "status", label: "New status", type: "select", required: true, options: statusOptions.filter(s => !["APPROVED", "REJECTED", "WAITLISTED"].includes(s.value)) }],
+      title: current === "REJECTED" ? "Reopen rejected application" : "Change application status",
+      subtitle: current === "REJECTED"
+        ? "This application was rejected during review, so it cannot be endorsed or interviewed. Choose Under Review to reopen it; it can then continue to the interview. Rejections recorded as official decisions after the interview cannot be reopened."
+        : inReview
+          ? "Choose Rejected to stop this application before the interview. It cannot be endorsed or interviewed until a LYDO Official or Administrator reopens it."
+          : "The existing ApplicationService validates allowed status transitions.",
+      fields: [{ key: "status", label: "New status", type: "select", required: true, options }],
       initial: { status: row.status },
       row,
     });
@@ -530,8 +611,8 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
   }
 
   function openDecision(row?: Row) {
-    if (user.role !== "ADMIN") {
-      setToast("Only Administrators can record official decisions.");
+    if (!DECISION_ROLES.has(user.role)) {
+      setToast("Only LYDO Officials and Administrators can record official decisions.");
       return;
     }
     const statusOf = (r: Row) => String(r.stage || r.application_status || r.status || "").toUpperCase();
@@ -632,7 +713,12 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
         }
       } else if (form.mode === "status") {
         await put(`/applications/${form.row?.application_id}`, { status: values.status });
-        setToast("Application status updated.");
+        const previous = String(form.row?.status || "").toUpperCase();
+        setToast(values.status === "REJECTED" && previous !== "REJECTED"
+          ? "Application rejected. It cannot be endorsed or interviewed until a LYDO Official or Administrator reopens it."
+          : previous === "REJECTED" && values.status !== "REJECTED"
+            ? "Application reopened to Under Review. It can now continue to the interview."
+            : "Application status updated.");
       } else if (form.mode === "screen") {
         await post("/screening", { application_id: Number(values.application_id) });
         setScreeningFailures(previous => { const next = { ...previous }; delete next[String(values.application_id)]; return next; });
@@ -746,7 +832,8 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
               {page === "Applications" && <button className="primary-button" onClick={openRegistration}><Plus size={17} /> New Application</button>}
               {page === "AI Screening" && <button className="primary-button" disabled={loading || !applicationOptions.length || formBusy} onClick={() => { setForm({ mode: "batchScreen", title: "Run batch AI screening", subtitle: `Run and persist advisory screening for ${applicationOptions.length} existing applications? Official statuses remain unchanged. Failures will appear in the screening table.`, fields: [], initial: {} }); }}><Play size={17} />Run AI Screening</button>}
               {page === "Interviews" && <button className="primary-button" disabled={loading || !rows.some(row => row.awaiting_schedule)} onClick={() => openSchedule()}><CalendarDays size={21} />Schedule Interview</button>}
-              {page === "Decisions" && <button className="primary-button" disabled={loading || user.role !== "ADMIN"} title={user.role === "ADMIN" ? "Record an official decision" : "Only Administrators can record decisions"} onClick={() => openDecision()}><Plus size={17} /> Record decision</button>}
+              {page === "Decisions" && <button className="button-secondary" disabled={loading || exporting} title="Export applicants who completed screening, the interview and an official decision" onClick={exportFinalized}><Download size={17} />{exporting ? "Exporting…" : "Export finalized (CSV)"}</button>}
+              {page === "Decisions" && <button className="primary-button" disabled={loading || !DECISION_ROLES.has(user.role)} title={DECISION_ROLES.has(user.role) ? "Record an official decision" : "Only LYDO Officials and Administrators can record decisions"} onClick={() => openDecision()}><Plus size={17} /> Record decision</button>}
             </>}
           /> }
 
@@ -777,9 +864,9 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
             ? <OverviewPage data={dashboard} loading={loading} onOpen={setPage} />
             : page === "Applicants" ? <ApplicantsPage initialSelectedId={applicantFocus} sourceRows={rows} loading={loading} search={search} setSearch={setSearch} refresh={refresh} onEdit={openApplicantEdit} onArchive={archiveApplicant} />
             : page === "Applications" ? <ApplicationsPage rows={rows} loading={loading} search={search} setSearch={setSearch} refresh={refresh} onScreen={openScreening} onSchedule={openSchedule} onEdit={openApplicationEdit} onStatus={openStatus} onProfile={applicantId => { setApplicantFocus(applicantId); setSearch(""); setPage("Applicants"); }} />
-            : page === "AI Screening" ? <ScreeningPage latestBatch={latestBatch} applications={allApplications} results={rows} failures={screeningFailures} loading={loading} search={search} setSearch={setSearch} refresh={refresh} onScreen={openScreening} onSchedule={openSchedule} onReviewStage={openStatus} onEndorse={openEndorsement} onEditInputs={openScreeningInputsEdit} />
+            : page === "AI Screening" ? <ScreeningPage latestBatch={latestBatch} applications={allApplications} results={rows} failures={screeningFailures} loading={loading} search={search} setSearch={setSearch} refresh={refresh} onScreen={openScreening} onSchedule={openSchedule} onReviewStage={openStatus} onEndorse={openEndorsement} />
             : page === "Interviews" ? <InterviewsPage rows={rows} applications={allApplications} loading={loading} onSchedule={openSchedule} onResult={openInterviewResult} />
-            : page === "Decisions" ? <DecisionsPage decisions={rows} interviewed={decisionQueue} loading={loading} refresh={refresh} onDecision={openDecision} canDecide={user.role === "ADMIN"} />
+            : page === "Decisions" ? <DecisionsPage decisions={rows} interviewed={decisionQueue} loading={loading} refresh={refresh} onDecision={openDecision} canDecide={DECISION_ROLES.has(user.role)} />
             : <DataPage
                 page={page}
                 rows={rows}
@@ -1036,8 +1123,9 @@ function FormModal({ form, closing = false, busy, serverError, onClose, onSubmit
           return false;
         }
 
-        if (f.key === "phone" && !/^\d{7,15}$/.test(String(value).replace(/\D/g, ""))) {
-          setError("Phone number must contain 7 to 15 digits.");
+        // Philippine mobile, international format only: +63 then 10 digits starting with 9 (12 digits).
+        if (f.key === "phone" && !/^\+639\d{9}$/.test(String(value).replace(/[\s-]/g, ""))) {
+          setError("Phone number must be in international format: +63 followed by the 10-digit mobile number (e.g. +639171234567).");
           return false;
         }
 
@@ -1155,11 +1243,14 @@ function FormModal({ form, closing = false, busy, serverError, onClose, onSubmit
                             step={field.step}
                             readOnly={field.readOnly}
                             inputMode={field.key === "phone" ? "tel" : undefined}
+                            maxLength={field.key === "phone" ? 13 : undefined}
                             value={values[field.key] ?? ""}
                             placeholder={field.placeholder}
                             onChange={e => {
                               let v = e.target.value;
                               if (field.type === "number" && v !== "" && Number(v) < 0) v = v.replace(/-/g, "");
+                              // Phone: keep a single leading "+" and digits only ("+" plus 12 digits = 13 characters).
+                              if (field.key === "phone") v = v.replace(/[^\d+]/g, "").replace(/(?!^)\+/g, "").slice(0, 13);
                               updateValue(field.key, v);
                             }}
                           />
