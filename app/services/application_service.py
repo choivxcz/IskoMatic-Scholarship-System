@@ -97,6 +97,10 @@ class ApplicationService:
         applicant_data["phone"] = ApplicantRepository._validate_phone(
             applicant_data.get("phone")
         )
+        # One email address and one mobile number per applicant.
+        ApplicantRepository.ensure_unique_contact(
+            applicant_data["email"], applicant_data["phone"]
+        )
 
         for field in ("middle_name", "suffix"):
             value = applicant_data.get(field)

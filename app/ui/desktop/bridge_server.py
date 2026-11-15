@@ -31,7 +31,7 @@ from app.repositories.scholarship_decision_repository import (
 from app.repositories.screening_result_repository import ScreeningResultRepository
 from app.services.application_service import ApplicationService
 from app.services.decision_service import decision_choices, effective_stage
-from app.services.export_service import finalized_records
+from app.services.export_service import finalized_records, open_export, write_finalized_csv
 from app.services.screening_persistence_service import ScreeningPersistenceService
 from app.services.ml_screening_service import evaluate_applicant
 from app.services.screening_ranking_service import rank_applications
@@ -44,7 +44,7 @@ HOST, PORT = "127.0.0.1", 8765
 # Bump when the UI depends on new bridge behaviour, so an old bridge left
 # running is detected instead of silently returning incomplete data.
 # 2 = staff sign-in + per-action activity logging and attribution.
-API_VERSION = 6
+API_VERSION = 8
 
 # Roles that may record official scholarship decisions (must match DECISION_ROLES in App.tsx).
 # Approving staff accounts stays Administrator-only.
@@ -645,19 +645,6 @@ class Handler(BaseHTTPRequestHandler):
                     row["decided_by_role"] = maker["role"] if maker else None
                 return self._send(200, {"items": items, "interviewed": interviewed})
 
-            if path == "/api/exports/finalized":
-                # Finalized records only: screened, interviewed and officially decided.
-                # The export contains personal data, so it is logged under the staff member.
-                def export_finalized():
-                    rows = finalized_records()
-                    credit = activity_store.attributions()["entities"]
-                    for row in rows:
-                        maker = credit.get(f"decision:{int(row['decision_id'])}")
-                        row["decided_by"] = maker["name"] if maker else None
-                    return 200, {"items": rows}, None
-
-                return self._tracked(user, "EXPORT_FINALIZED", "export", None, {}, export_finalized)
-
             if path == "/api/screening-ranking":
                 return self._send(200, screening_ranking())
 
@@ -743,6 +730,28 @@ class Handler(BaseHTTPRequestHandler):
             user = self._require_user()
             if user is None:
                 return None
+
+            if path == "/api/exports/finalized":
+                # Finalized records only: screened, interviewed and officially decided.
+                # Written to Downloads\Iskolar ng Bayan Exports on this computer. The file
+                # holds personal data, so each export is logged under the staff member.
+                def export_finalized():
+                    rows = finalized_records()
+                    if not rows:
+                        return 200, {"count": 0}, None
+                    credit = activity_store.attributions()["entities"]
+                    for row in rows:
+                        maker = credit.get(f"decision:{int(row['decision_id'])}")
+                        row["decided_by"] = maker["name"] if maker else None
+                    file = write_finalized_csv(rows)
+                    return 201, {"count": len(rows), "filename": file.name, "path": str(file), "folder": str(file.parent)}, None
+
+                return self._tracked(user, "EXPORT_FINALIZED", "export", None, {}, export_finalized)
+
+            if path == "/api/exports/open":
+                # Opens only files created by the export above (validated by name and folder).
+                open_export(data.get("filename"), reveal=bool(data.get("reveal")))
+                return self._send(200, {"ok": True})
 
             if path == "/api/register":
                 applicant = data.get("applicant") or {}

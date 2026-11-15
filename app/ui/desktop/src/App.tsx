@@ -21,7 +21,7 @@ import {
   Menu, Plus, RefreshCw, Search, Settings2, ShieldCheck, Sparkles, Users, X,
   BrainCircuit, AlertCircle, LoaderCircle, Pencil, Archive, CalendarPlus,
   ClipboardCheck, UserRoundPlus, ListChecks, Bell, ChevronDown, PanelLeftClose, Eye, EyeOff, UserRound, FolderCheck, Play,
-  LogOut, Download,
+  LogOut, Download, FileSpreadsheet, FolderOpen,
 } from "lucide-react";
 
 type Row = Record<string, any>;
@@ -52,7 +52,7 @@ const requestedView = new URLSearchParams(window.location.search).get("view") ||
 const initialPage: PageKey = !requestedView && ["Overview", "Applicants", "Applications", "AI Screening", "Interviews", "Decisions"].includes(localStorage.getItem("iskolar-landing") || "") ? localStorage.getItem("iskolar-landing") as PageKey : requestedView === "activity" ? "Activity Log" : requestedView === "settings" ? "Settings" : requestedView === "decisions" ? "Decisions" : requestedView === "interviews" ? "Interviews" : requestedView === "screening" ? "AI Screening" : requestedView === "applications" ? "Applications" : requestedView === "applicants" ? "Applicants" : "Overview";
 const API = "http://127.0.0.1:8765/api";
 // Must match API_VERSION in bridge_server.py.
-const REQUIRED_API_VERSION = 6;
+const REQUIRED_API_VERSION = 8;
 
 const nav: { label: PageKey; icon: typeof LayoutDashboard; group: string }[] = [
   { label: "Overview", icon: LayoutDashboard, group: "WORKSPACE" },
@@ -143,48 +143,9 @@ const REVIEW_STAGES = new Set(["DRAFT", "SUBMITTED", "UNDER_REVIEW"]);
 // Roles that may record official scholarship decisions (must match DECISION_ROLES in bridge_server.py).
 const DECISION_ROLES = new Set(["ADMIN", "LYDO_OFFICIAL"]);
 
-// ---- Finalized-records CSV export ----
-// A cell that starts with = + - @ tab or CR is prefixed with an apostrophe so a
-// spreadsheet never runs it as a formula (CSV injection guard).
-const csvCell = (value: unknown) => {
-  const text = value == null ? "" : String(value);
-  return `"${(/^[=+\-@\t\r]/.test(text) ? "'" : "") + text.replace(/"/g, '""')}"`;
-};
-const yesNo = (value: unknown) => value == null || value === "" ? "" : [true, 1, "1", "true"].includes(value as never) ? "Yes" : "No";
-const words = (value: unknown) => value == null || value === "" ? "" : String(value).replace(/_/g, " ").toLowerCase().replace(/^\w/, c => c.toUpperCase());
-const csvDay = (value: unknown) => value ? String(value).slice(0, 10) : "";
-const csvTime = (value: unknown) => value ? String(value).replace("T", " ").slice(0, 16) : "";
-const FINALIZED_COLUMNS: [string, (row: Row) => unknown][] = [
-  ["Application ID", r => `APP-${r.application_id}`], ["Applicant ID", r => r.applicant_id],
-  ["Last name", r => r.last_name], ["First name", r => r.first_name], ["Middle name", r => r.middle_name], ["Suffix", r => r.suffix],
-  ["Sex", r => words(r.sex)], ["Birth date", r => csvDay(r.birth_date)], ["Email", r => r.email], ["Phone", r => r.phone],
-  ["House no. / street", r => r.house_no_street], ["Barangay", r => r.barangay], ["Municipality", r => r.municipality], ["Province", r => r.province],
-  ["Scholarship program", r => r.scholarship_program], ["Scholarship year", r => r.scholarship_year],
-  ["Academic average", r => r.academic_average], ["Entrance exam score (%)", r => r.exam_score], ["Monthly household income (PHP)", r => r.monthly_income],
-  ["Household size", r => r.household], ["Children", r => r.children_count], ["Seniors", r => r.senior_count], ["PWDs", r => r.pwd_count],
-  ["Solo parent", r => yesNo(r.solo_parent)], ["Within MSWDO poverty line", r => yesNo(r.mswdo_poverty_eligible)],
-  ["AI recommendation (advisory)", r => words(r.predicted_class)], ["Chance of qualifying (%)", r => r.chance_percent],
-  ["Screened at", r => csvTime(r.screened_at)], ["Model version", r => r.model_version],
-  ["Interview date", r => csvTime(r.interview_date)], ["Interview location", r => r.interview_location],
-  ["Interview result", r => words(r.interview_result)], ["Interview remarks", r => r.interview_remarks],
-  ["Official decision", r => words(r.decision)], ["Decision remarks", r => r.decision_reason],
-  ["Decided at", r => csvTime(r.decided_at)], ["Decided by", r => r.decided_by || "Not recorded"],
-  ["Applicant archived", r => yesNo(r.applicant_archived)],
-];
-
-function downloadFinalizedCsv(rows: Row[]) {
-  const lines = [
-    FINALIZED_COLUMNS.map(([header]) => csvCell(header)).join(","),
-    ...rows.map(row => FINALIZED_COLUMNS.map(([, read]) => csvCell(read(row))).join(",")),
-  ];
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
-  const url = URL.createObjectURL(new Blob(["﻿", lines.join("\r\n")], { type: "text/csv;charset=utf-8" }));
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `finalized-scholarship-records-${today}.csv`;
-  anchor.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+// Result of a finalized-records export. The bridge writes the CSV to
+// Downloads\Iskolar ng Bayan Exports on this computer and can open it afterwards.
+type ExportNotice = { count: number; filename: string; path: string; folder: string };
 
 const registrationFields: Field[] = [
   { key: "first_name", label: "First Name", required: true, section: "Applicant Details" },
@@ -330,6 +291,7 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
   useEffect(() => setFormError(""), [form]);
   const [toast, setToast] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [exportNotice, setExportNotice] = useState<ExportNotice | null>(null);
   // Clear the previous page's data in the same render as the switch, so a page never sees another page's rows.
   const setPage = (next: PageKey) => {
     if (next !== page) { setRows([]); setDashboard(null); setAllApplications([]); setDecisionQueue([]); setLoading(true); }
@@ -447,21 +409,31 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
   const showError = (e: unknown) => setToast(e instanceof Error ? e.message : "The operation could not be completed.");
 
   // Exports only finalized records: screened, interviewed and given an official decision.
+  // The bridge writes the CSV to Downloads\Iskolar ng Bayan Exports and returns where it is.
   async function exportFinalized() {
     setExporting(true);
     try {
-      const data = await request<{ items: Row[] }>("/exports/finalized");
-      const items = data.items || [];
-      if (!items.length) {
+      const result = await post("/exports/finalized", {}) as Partial<ExportNotice> & { count: number };
+      if (!result.count || !result.filename) {
         setToast("No finalized records yet. A record is finalized once it has a screening result, a completed interview and an official decision.");
         return;
       }
-      downloadFinalizedCsv(items);
-      setToast(`Exported ${items.length} finalized record${items.length === 1 ? "" : "s"}. The export is logged in the Activity Log.`);
+      setExportNotice(result as ExportNotice);
     } catch (e) {
       showError(e);
     } finally {
       setExporting(false);
+    }
+  }
+
+  // Clicking the notification opens the CSV in its default app; "Show in folder" opens File Explorer.
+  async function openExport(reveal: boolean) {
+    if (!exportNotice) return;
+    try {
+      await post("/exports/open", { filename: exportNotice.filename, reveal });
+      if (!reveal) setExportNotice(null);
+    } catch (e) {
+      showError(e);
     }
   }
 
@@ -895,6 +867,20 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
 
       {shownForm && <FormModal form={shownForm} closing={formClosing} busy={formBusy} serverError={formError} onClose={() => !formBusy && setForm(null)} onSubmit={submitForm} />}
       {shownToast && <div className={`toast ${toastClosing ? "is-closing" : ""}`} role="status" aria-live="polite"><CircleHelp size={17} />{shownToast}<i className="toast-timer" key={shownToast} /><button onClick={() => setToast("")} aria-label="Dismiss"><X size={15} /></button></div>}
+      {exportNotice && <div className="export-notice" role="alert" aria-live="assertive">
+        <button type="button" className="export-notice-main" onClick={() => openExport(false)} title={`Open ${exportNotice.path}`}>
+          <span className="export-notice-icon"><FileSpreadsheet size={22} /></span>
+          <span className="export-notice-text">
+            <strong>Export saved · {exportNotice.count} finalized record{exportNotice.count === 1 ? "" : "s"}</strong>
+            <span className="export-notice-file">{exportNotice.filename}</span>
+            <small>Saved in {exportNotice.folder}. Click to open the file.</small>
+          </span>
+        </button>
+        <div className="export-notice-actions">
+          <button type="button" onClick={() => openExport(true)}><FolderOpen size={14} /> Show in folder</button>
+          <button type="button" className="export-notice-close" aria-label="Dismiss export notification" onClick={() => setExportNotice(null)}><X size={15} /></button>
+        </div>
+      </div>}
     </div>
   );
 }

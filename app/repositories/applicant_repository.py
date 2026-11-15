@@ -73,6 +73,56 @@ class ApplicantRepository:
         return phone
 
     @staticmethod
+    def ensure_unique_contact(email=None, phone=None, exclude_applicant_id=None):
+        """Each email address and mobile number may belong to only one applicant.
+
+        Archived applicants count too (they are still the same person). Emails are
+        compared ignoring case and surrounding spaces; phone numbers ignoring spaces
+        and dashes. When editing, the applicant's own record is excluded.
+        Raises ValueError naming the applicant who already has the value.
+        """
+        checks = []
+        if email:
+            checks.append((
+                "email address",
+                "LOWER(TRIM(email)) = LOWER(TRIM(%s))",
+                email,
+            ))
+        if phone:
+            checks.append((
+                "mobile number",
+                "REPLACE(REPLACE(phone, ' ', ''), '-', '') = %s",
+                re.sub(r"[\s-]", "", phone),
+            ))
+        if not checks:
+            return
+
+        connection = get_connection()
+        try:
+            with connection.cursor(dictionary=True) as cursor:
+                for label, condition, value in checks:
+                    query = (
+                        "SELECT applicant_id, "
+                        "CONCAT_WS(' ', first_name, last_name) AS full_name, is_archived "
+                        f"FROM applicants WHERE {condition}"
+                    )
+                    params = [value]
+                    if exclude_applicant_id is not None:
+                        query += " AND applicant_id <> %s"
+                        params.append(exclude_applicant_id)
+                    cursor.execute(query + " ORDER BY applicant_id LIMIT 1", tuple(params))
+                    owner = cursor.fetchone()
+                    if owner:
+                        archived = " (archived)" if owner["is_archived"] else ""
+                        raise ValueError(
+                            f"This {label} is already used by applicant "
+                            f"#{owner['applicant_id']} {owner['full_name']}{archived}. "
+                            f"Each {label} can belong to only one applicant."
+                        )
+        finally:
+            connection.close()
+
+    @staticmethod
     def _validate_birth_date(birth_date):
         if birth_date is None or not str(birth_date).strip():
             raise ValueError("Birth date is required.")
@@ -137,6 +187,7 @@ class ApplicantRepository:
         house_no_street = ApplicantRepository._validate_required_text(
             house_no_street, "House number/street"
         )
+        ApplicantRepository.ensure_unique_contact(email, phone)
 
         query = """
             INSERT INTO applicants (
@@ -365,6 +416,10 @@ class ApplicantRepository:
             fields["phone"] = ApplicantRepository._validate_phone(
                 fields["phone"]
             )
+
+        ApplicantRepository.ensure_unique_contact(
+            fields.get("email"), fields.get("phone"), exclude_applicant_id=applicant_id
+        )
 
         for field in ("middle_name", "suffix"):
             if field in fields and isinstance(fields[field], str):

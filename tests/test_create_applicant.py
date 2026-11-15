@@ -21,7 +21,7 @@ def test_create_applicant():
         birth_date="2005-01-15",
         sex="MALE",
         email=unique_email,
-        phone="+639171234567",
+        phone=f"+639{uuid4().int % 10**9:09d}",  # unique: one number per applicant
         house_no_street="123 Test Street",
         barangay="Poblacion",
         municipality="Santa Cruz",

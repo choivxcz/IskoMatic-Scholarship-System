@@ -141,3 +141,24 @@ html[data-theme="dark"] .app-shell .reference-summary-card:hover { background: #
 html[data-theme="dark"] .app-shell .primary-button:disabled { background: #273b56; color: #b7c6d9; }
 
 /* Compact pagination stays usable when the table is in a split view. */
+
+/* Export notification: stays until clicked (opens the CSV) or dismissed. */
+.export-notice { position: fixed; top: 76px; right: 24px; z-index: 70; display: flex; flex-direction: column; gap: 8px; width: min(420px, calc(100vw - 32px)); padding: 12px; border: 1px solid #dbe6f5; border-radius: 12px; background: #fff; color: #14264a; box-shadow: 0 16px 40px #061f4e26; animation: m-toast-in .42s var(--ease-spring, ease) backwards; }
+.export-notice-main { display: flex; align-items: flex-start; gap: 12px; width: 100%; padding: 6px; border: 0; border-radius: 9px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.export-notice-main:hover, .export-notice-main:focus-visible { background: #eef5ff; outline: none; }
+.export-notice-icon { display: grid; place-items: center; flex: 0 0 40px; height: 40px; border-radius: 10px; background: #e3f4ec; color: #13835f; }
+.export-notice-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.export-notice-text strong { font-size: 13px; font-weight: 700; }
+.export-notice-file { font-size: 12px; font-weight: 600; color: #115df4; word-break: break-all; }
+.export-notice-text small { font-size: 11px; line-height: 1.45; color: #536d94; word-break: break-word; }
+.export-notice-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 6px; }
+.export-notice-actions button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid #dbe6f5; border-radius: 8px; background: #fff; color: #14264a; font-size: 12px; font-weight: 600; cursor: pointer; }
+.export-notice-actions button:hover { background: #eef5ff; }
+.export-notice-actions .export-notice-close { padding: 6px; border-color: transparent; color: #82948e; }
+html[data-theme="dark"] .export-notice { background: #111b2b; border-color: #2a384d; color: #e2e8f0; box-shadow: 0 16px 40px #00000066; }
+html[data-theme="dark"] .export-notice-main:hover, html[data-theme="dark"] .export-notice-main:focus-visible { background: #172438; }
+html[data-theme="dark"] .export-notice-icon { background: #12392d; color: #6ee7b7; }
+html[data-theme="dark"] .export-notice-file { color: #7fb0ff; }
+html[data-theme="dark"] .export-notice-text small { color: #a7b6ca; }
+html[data-theme="dark"] .export-notice-actions button { background: #111b2b; border-color: #2a384d; color: #e2e8f0; }
+html[data-theme="dark"] .export-notice-actions button:hover { background: #172438; }

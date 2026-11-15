@@ -1,4 +1,6 @@
 
+from uuid import uuid4
+
 from app.repositories.applicant_repository import ApplicantRepository
 
 
@@ -16,7 +18,7 @@ def test_update_applicant():
 
     updated = ApplicantRepository.update(
         applicant_id,
-        phone="+639171234567",
+        phone=f"+639{uuid4().int % 10**9:09d}",  # unique: one number per applicant
     )
 
     applicant_after = ApplicantRepository.get_by_id(applicant_id)
