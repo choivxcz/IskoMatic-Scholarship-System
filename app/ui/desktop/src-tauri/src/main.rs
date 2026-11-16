@@ -8,7 +8,11 @@ use tauri::Manager;
 struct BridgeProcess(Mutex<Option<Child>>);
 
 fn project_root() -> PathBuf {
-    // src-tauri -> desktop -> ui -> app -> project root
+    // On another PC, set ISKOLAR_HOME to the project folder (the one holding app\ and models\).
+    if let Some(home) = std::env::var_os("ISKOLAR_HOME").map(PathBuf::from) {
+        if home.join("app").join("ui").join("desktop").join("bridge_server.py").is_file() { return home; }
+    }
+    // Default: the folder the app was built from (src-tauri -> desktop -> ui -> app -> project root).
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../../").canonicalize().unwrap_or_else(|_| PathBuf::from("."))
 }
 

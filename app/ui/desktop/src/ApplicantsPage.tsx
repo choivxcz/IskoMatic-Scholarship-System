@@ -19,7 +19,7 @@ export default function ApplicantsPage({ sourceRows, loading, search, setSearch,
   const records = sourceRows;
   useEffect(() => { if (initialSelectedId != null) setSelectedId(initialSelectedId); }, [initialSelectedId]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState("active");
   const [barangay, setBarangay] = useState("");
   const [sort, setSort] = useState("date-asc");
   const [page, setPage] = useState(1);
@@ -59,7 +59,7 @@ export default function ApplicantsPage({ sourceRows, loading, search, setSearch,
   const metrics = [
     { label: "Directory records", value: records.length, note: "Distinct applicant identities", icon: Users },
     { label: "Active records", value: records.filter(row => !archived(row)).length, note: "Available for new applications", icon: UserRound },
-    { label: "Archived records", value: "—", note: "Archive history unavailable", icon: Archive },
+    { label: "Archived records", value: records.filter(archived).length, note: "Kept on record, not deleted", icon: Archive },
     { label: "New this month", value: records.filter(row => String(row.created_at || "").startsWith(month)).length, note: now.toLocaleDateString("en-PH", { month: "long", year: "numeric", timeZone: "Asia/Manila" }), icon: UserRoundPlus },
   ];
   return <div className="applicants-page">
@@ -82,7 +82,7 @@ export default function ApplicantsPage({ sourceRows, loading, search, setSearch,
         </>}
         {tab === "AI Prediction" && <section className="applicant-detail-section"><h3>AI prediction per application</h3>{applicationsLoading ? <p>Loading linked applications…</p> : linked.length ? linked.map(application => <div key={application.application_id}><p className="ai-application-heading">APP-{application.application_id} · {application.scholarship_program || "Application"} {application.scholarship_year || ""}</p><AiExplanation applicationId={Number(application.application_id)} /></div>) : <p>No linked applications to analyse.</p>}</section>}{tab === "Household/Academic" && <section className="applicant-detail-section"><h3>Household / academic</h3><p>Household and academic information belongs to each scholarship application.</p>{linked.map(application => <dl key={application.application_id}>{[["Application", `APP-${application.application_id}`], ["Academic average", application.academic_average ?? "Not recorded"], ["Household size", application.household_size ?? application.household ?? "Not recorded"], ["Monthly income", application.monthly_income ?? "Not recorded"]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>)}{!linked.length && <p>No linked application information available.</p>}</section>}
         {tab === "History" && <section className="applicant-detail-section"><h3>Record history</h3><dl><div><dt>Added</dt><dd>{date(selected.created_at)}</dd></div>{selected.updated_at && <div><dt>Updated</dt><dd>{date(selected.updated_at)}</dd></div>}</dl><p>Full audit history is not connected.</p></section>}
-        <div className="applicant-notice"><Info size={16} /><span>Identity edits do not change scholarship application decisions.</span></div><div className="applicant-profile-actions"><button className="button-secondary" onClick={() => onEdit(selected)}><Pencil size={16} />Edit profile</button><button className="button-secondary" disabled={archived(selected)} onClick={() => onArchive(selected)}><Archive size={16} />Archive</button></div>
+        <div className="applicant-notice"><Info size={16} /><span>Identity edits do not change scholarship application decisions.</span></div><div className="applicant-profile-actions"><button className="button-secondary" disabled={archived(selected)} title={archived(selected) ? "Archived records are kept as they were and cannot be edited." : undefined} onClick={() => onEdit(selected)}><Pencil size={16} />Edit profile</button><button className="button-secondary" disabled={archived(selected)} onClick={() => onArchive(selected)}><Archive size={16} />Archive</button></div>
       </aside>}
     </div>
   </div>;

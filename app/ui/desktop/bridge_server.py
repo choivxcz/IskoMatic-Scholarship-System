@@ -33,7 +33,7 @@ from app.services.application_service import ApplicationService
 from app.services.decision_service import decision_choices, effective_stage
 from app.services.export_service import finalized_records, open_export, write_finalized_csv
 from app.services.screening_persistence_service import ScreeningPersistenceService
-from app.services.ml_screening_service import evaluate_applicant
+from app.services.ml_screening_service import EXAM_PASSING_RATE, MINIMUM_AVERAGE_EXCLUSIVE, evaluate_applicant
 from app.services.screening_ranking_service import rank_applications
 from database.connection import get_connection
 from app.ui.desktop import activity_store, auth_store
@@ -44,7 +44,7 @@ HOST, PORT = "127.0.0.1", 8765
 # Bump when the UI depends on new bridge behaviour, so an old bridge left
 # running is detected instead of silently returning incomplete data.
 # 2 = staff sign-in + per-action activity logging and attribution.
-API_VERSION = 8
+API_VERSION = 10
 
 # Roles that may record official scholarship decisions (must match DECISION_ROLES in App.tsx).
 # Approving staff accounts stays Administrator-only.
@@ -178,6 +178,100 @@ def ai_explanation(application_id):
         "mswd_threshold": result["mswd_threshold"],
         "saved": saved,
         "inputs_changed_since_saved": bool(saved and saved["fingerprint"] and saved["fingerprint"] != fingerprint),
+    }
+
+
+def application_references(application_id):
+    """What an application's status and AI recommendation are based on (read-only):
+    its source records, the eligibility rules checked with the values used, the model
+    behind the latest screening, and which staff member recorded each step."""
+    application = ApplicationRepository.get_by_id(application_id, include_archived=True)
+    if not application:
+        return 404, {"error": "Application not found."}
+    applicant = ApplicantRepository.get_by_id(application["applicant_id"], include_archived=True) or {}
+
+    # Eligibility rules, with the same thresholds the screening service applies.
+    inputs = application_screening_inputs(application)
+    exam_total = inputs["exam_total"] or 100
+    exam_percent = round(100 * inputs["exam_score"] / exam_total, 1)
+    raw, total = application.get("exam_raw_score"), application.get("exam_total_items")
+    exam_value = f"{raw} of {total} items ({exam_percent}%)" if raw is not None and total else f"{exam_percent}%"
+    yes_no = lambda flag: "Yes" if flag else "No"  # noqa: E731
+    rules = [
+        {"rule": "Entrance exam score of 80% or higher", "value": exam_value,
+         "passed": inputs["exam_score"] >= EXAM_PASSING_RATE * exam_total},
+        {"rule": "Academic average above 75", "value": f"{inputs['average']:g}",
+         "passed": inputs["average"] > MINIMUM_AVERAGE_EXCLUSIVE},
+        {"rule": "Not a 4Ps beneficiary", "value": yes_no(inputs["fourps"]), "passed": not inputs["fourps"]},
+        {"rule": "Not an SPES beneficiary", "value": yes_no(inputs["spes"]), "passed": not inputs["spes"]},
+        {"rule": "No other scholar in the family", "value": str(inputs["scholars"]), "passed": inputs["scholars"] < 1},
+    ]
+
+    connection = get_connection()
+    try:
+        with connection.cursor(dictionary=True) as cursor:
+            cursor.execute(
+                "SELECT sr.screening_id, sr.predicted_class, sr.confidence_score, sr.explanation, sr.screened_at, "
+                "mv.version_name, mv.algorithm, mv.accuracy, mv.precision_score, mv.recall_score, mv.f1_score, "
+                "mv.trained_at, mv.is_active "
+                "FROM screening_results sr LEFT JOIN model_versions mv ON mv.model_version_id = sr.model_version_id "
+                "WHERE sr.application_id = %s ORDER BY sr.screened_at DESC, sr.screening_id DESC LIMIT 1",
+                (application_id,),
+            )
+            screening = cursor.fetchone()
+            cursor.execute("SELECT COUNT(*) AS runs FROM screening_results WHERE application_id = %s", (application_id,))
+            screening_runs = cursor.fetchone()["runs"]
+            cursor.execute(
+                "SELECT interview_id, scheduled_at, location, status, result, remarks FROM interviews "
+                "WHERE application_id = %s ORDER BY interview_id DESC",
+                (application_id,),
+            )
+            interviews = cursor.fetchall()
+            cursor.execute(
+                "SELECT decision_id, decision, reason, decided_at FROM scholarship_decisions "
+                "WHERE application_id = %s ORDER BY decision_id DESC LIMIT 1",
+                (application_id,),
+            )
+            decision = cursor.fetchone()
+    finally:
+        connection.close()
+
+    model = None
+    if screening:
+        try:
+            details = json.loads(screening.pop("explanation") or "{}")
+        except (TypeError, ValueError):
+            details = {}
+        saved_fingerprint = details.get("screening_input_fingerprint")
+        screening["outdated"] = bool(
+            saved_fingerprint and saved_fingerprint != read_screening_service().create_input_fingerprint(inputs)
+        )
+        score = screening.pop("confidence_score")
+        screening["chance_percent"] = round(float(score) * 100, 1) if score is not None else None
+        model = {key: screening.pop(key) for key in (
+            "version_name", "algorithm", "accuracy", "precision_score", "recall_score", "f1_score", "trained_at", "is_active",
+        )}
+
+    trail = activity_store.application_trail(application_id, [int(i["interview_id"]) for i in interviews])
+    name = " ".join(str(applicant.get(k)) for k in ("first_name", "middle_name", "last_name", "suffix") if applicant.get(k))
+    return 200, {
+        "applicant": {
+            "applicant_id": application["applicant_id"], "name": name, "email": applicant.get("email"),
+            "phone": applicant.get("phone"), "barangay": applicant.get("barangay"),
+            "created_at": applicant.get("created_at"), "archived": bool(applicant.get("is_archived")),
+        },
+        "application": {
+            "application_id": application_id, "program": application.get("scholarship_program"),
+            "year": application.get("scholarship_year"), "status": application.get("status"),
+            "created_at": application.get("created_at"), "updated_at": application.get("updated_at"),
+        },
+        "rules": rules,
+        "screening": screening,
+        "screening_runs": screening_runs,
+        "model": model,
+        "interview": interviews[0] if interviews else None,
+        "decision": decision,
+        "trail": trail,
     }
 
 
@@ -600,7 +694,9 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/applicants":
                 return self._send(
                     200,
-                    {"items": ApplicantRepository.get_all()},
+                    # Archived applicants are included (flagged is_archived) so the
+                    # Applicants page can list them under its Archived filter.
+                    {"items": ApplicantRepository.get_all(include_archived=True)},
                 )
 
             if path == "/api/applications":
@@ -699,6 +795,10 @@ class Handler(BaseHTTPRequestHandler):
 
             if path.startswith("/api/applications/") and path.endswith("/ai-explanation"):
                 status, payload = ai_explanation(int(path.split("/")[-2]))
+                return self._send(status, payload)
+
+            if path.startswith("/api/applications/") and path.endswith("/references"):
+                status, payload = application_references(int(path.split("/")[-2]))
                 return self._send(status, payload)
 
             if path.startswith("/api/applications/"):
@@ -960,6 +1060,11 @@ class Handler(BaseHTTPRequestHandler):
                     for key, value in data.items()
                     if key in allowed
                 }
+
+                # Details are locked once an official decision is recorded.
+                locked = ApplicationService.edit_blocked_reason(application_id, fields)
+                if locked:
+                    return self._send(403, {"error": locked})
 
                 previous_status = None
                 requested_status = None

@@ -325,3 +325,39 @@ def attributions() -> dict[str, dict[int, dict[str, Any]]]:
         if row["entity_id"]:
             by_entity[f"{row['entity_type']}:{int(row['entity_id'])}"] = stamp
     return {"applications": by_application, "interviews": by_interview, "entities": by_entity}
+
+
+def application_trail(application_id: int, interview_ids: list[int] | None = None) -> list[dict[str, Any]]:
+    """Successful staff actions on one application, oldest first, for its References tab.
+
+    Matches entries recorded against the application itself, entries whose details name it,
+    and entries on its interviews. Returns [{"action", "name", "role", "at"}].
+    """
+    application_id = _positive_id(application_id, "Application ID")
+    interview_ids = [_positive_id(i, "Interview ID") for i in (interview_ids or [])]
+    conditions = [
+        "(entity_type = 'application' AND entity_id = %s)",
+        "JSON_UNQUOTE(JSON_EXTRACT(details, '$.application_id')) = %s",
+    ]
+    params: list[Any] = [application_id, str(application_id)]
+    if interview_ids:
+        conditions.append(f"(entity_type = 'interview' AND entity_id IN ({','.join(['%s'] * len(interview_ids))}))")
+        params.extend(interview_ids)
+    rows = _fetch(
+        "SELECT action, details, created_at FROM audit_logs "
+        f"WHERE {' OR '.join(conditions)} ORDER BY created_at ASC, audit_id ASC",
+        tuple(params),
+    )
+    trail = []
+    for row in rows:
+        details = _decode(row["details"])
+        if details.get("outcome") != "SUCCEEDED":
+            continue
+        actor = details.get("actor") if isinstance(details.get("actor"), dict) else {}
+        trail.append({
+            "action": row["action"],
+            "name": actor.get("display_name") or actor.get("username"),
+            "role": actor.get("role"),
+            "at": row["created_at"],
+        })
+    return trail

@@ -53,6 +53,18 @@ class ApplicationService:
         return None
 
     @staticmethod
+    def edit_blocked_reason(application_id, fields):
+        """Why an application's details may not be edited, or None if they may.
+
+        Once an official decision is recorded, the details it was based on are
+        locked so the record stays consistent with the decision.
+        """
+        if fields and ApplicationService.has_official_decision(application_id):
+            return ("This application has an official decision, so its details "
+                    "are locked and cannot be edited.")
+        return None
+
+    @staticmethod
     def mswdo_threshold(household, children, seniors, pwds):
         return (
             max(15000, 4000 * household)

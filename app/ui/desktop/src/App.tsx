@@ -52,7 +52,7 @@ const requestedView = new URLSearchParams(window.location.search).get("view") ||
 const initialPage: PageKey = !requestedView && ["Overview", "Applicants", "Applications", "AI Screening", "Interviews", "Decisions"].includes(localStorage.getItem("iskolar-landing") || "") ? localStorage.getItem("iskolar-landing") as PageKey : requestedView === "activity" ? "Activity Log" : requestedView === "settings" ? "Settings" : requestedView === "decisions" ? "Decisions" : requestedView === "interviews" ? "Interviews" : requestedView === "screening" ? "AI Screening" : requestedView === "applications" ? "Applications" : requestedView === "applicants" ? "Applicants" : "Overview";
 const API = "http://127.0.0.1:8765/api";
 // Must match API_VERSION in bridge_server.py.
-const REQUIRED_API_VERSION = 8;
+const REQUIRED_API_VERSION = 10;
 
 const nav: { label: PageKey; icon: typeof LayoutDashboard; group: string }[] = [
   { label: "Overview", icon: LayoutDashboard, group: "WORKSPACE" },
@@ -480,6 +480,10 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
   }
 
   function openApplicationEdit(row: Row) {
+    if (["APPROVED", "WAITLISTED"].includes(String(row.status))) {
+      setToast("This application has an official decision, so its details are locked.");
+      return;
+    }
     setForm({
       mode: "editApplication",
       title: "Edit application",

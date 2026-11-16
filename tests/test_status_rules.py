@@ -34,3 +34,19 @@ def test_after_review_rejection_is_not_a_review_stage(status):
 @pytest.mark.parametrize("status", ["DRAFT", "SUBMITTED"])
 def test_review_rejection_is_not_offered_as_an_official_decision(status):
     assert decision_choices(status, False) == []
+
+
+def test_details_are_locked_after_an_official_decision(monkeypatch):
+    monkeypatch.setattr(ApplicationService, "has_official_decision", staticmethod(lambda application_id: True))
+    assert ApplicationService.edit_blocked_reason(1, {"monthly_income": 9000}) is not None
+
+
+def test_details_can_be_edited_before_a_decision(monkeypatch):
+    monkeypatch.setattr(ApplicationService, "has_official_decision", staticmethod(lambda application_id: False))
+    assert ApplicationService.edit_blocked_reason(1, {"monthly_income": 9000}) is None
+
+
+def test_status_only_changes_are_not_blocked_by_the_lock(monkeypatch):
+    # Status changes follow ALLOWED_TRANSITIONS and the reopen rule instead.
+    monkeypatch.setattr(ApplicationService, "has_official_decision", staticmethod(lambda application_id: True))
+    assert ApplicationService.edit_blocked_reason(1, {}) is None
