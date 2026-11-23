@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.services.decision_service import decision_choices, effective_stage
+from backend.services.decision_service import decision_choices, effective_stage
 
 
 @pytest.mark.parametrize("status", ["INTERVIEWED", "RECOMMENDED"])

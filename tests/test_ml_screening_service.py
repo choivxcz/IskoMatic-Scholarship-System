@@ -1,5 +1,5 @@
 
-from app.services.ml_screening_service import (
+from backend.services.ml_screening_service import (
     load_saved_model,
     evaluate_applicant,
 )

@@ -1,6 +1,6 @@
 
-from app.repositories.application_repository import ApplicationRepository
-from app.services.application_service import ApplicationService
+from backend.repositories.application_repository import ApplicationRepository
+from backend.services.application_service import ApplicationService
 
 
 def test_application_service():

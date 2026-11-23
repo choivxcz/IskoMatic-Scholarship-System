@@ -2,8 +2,8 @@
 
 import pytest
 
-from app.services.application_service import ApplicationService
-from app.services.decision_service import decision_choices
+from backend.services.application_service import ApplicationService
+from backend.services.decision_service import decision_choices
 
 T = ApplicationService.ALLOWED_TRANSITIONS
 

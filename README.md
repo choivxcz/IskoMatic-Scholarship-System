@@ -4,7 +4,7 @@
 
 IskoMatic is a desktop information system designed for the Local Youth Development Office (LYDO) of Santa Cruz, Laguna. It supports the office in registering scholarship applicants, screening their applications, and recording interviews and final decisions. A machine learning model assists the screening process by estimating the likelihood that an application meets the program's criteria.
 
-This repository contains the desktop edition. Its interface is built with React and TypeScript and runs in a native window through Tauri (or in a browser); a local Python service connects it to the MySQL database and the machine learning model. The original PyQt6 interface is still included and can be started with `python main.py`. A web edition built on the same code base, with a FastAPI back end and a React interface, is maintained in [IskoMatic](https://github.com/choivxcz/IskoMatic).
+This repository contains the desktop edition. Its interface is built with React and TypeScript and runs in a native window through Tauri (or in a browser); a local Python service connects it to the MySQL database and the machine learning model. The original PyQt6 interface is kept for reference in `legacy/pyqt/`. A web edition built on the same code base, with a FastAPI back end and a React interface, is maintained in [IskoMatic](https://github.com/choivxcz/IskoMatic).
 
 ## Objectives
 
@@ -26,7 +26,7 @@ This repository contains the desktop edition. Its interface is built with React 
 
 - Python 3.12
 - React, TypeScript and Vite (user interface), Tauri (native desktop window)
-- PyQt6 (original user interface, still available)
+- PyQt6 (original user interface, kept in `legacy/`)
 - MySQL (database)
 - scikit-learn, pandas, and joblib (machine learning)
 
@@ -41,7 +41,7 @@ pip install -r requirements.txt
 1. Create the database and its tables.
 
    ```bash
-   mysql -u root -p < schema.sql
+   mysql -u root -p < database/schema.sql
    ```
 
 2. Copy `.env.example` to `.env` and set `DB_USER` and `DB_PASSWORD`.
@@ -49,35 +49,28 @@ pip install -r requirements.txt
 3. Start the application.
 
    ```bash
-   python run_react_ui.py
+   python run.py
    ```
 
-   The first account registered becomes the Administrator. To use the original PyQt6 interface instead, run `python main.py`.
+   The first account registered becomes the Administrator. The retired PyQt6 interface can still be started with `python legacy/pyqt/main.py`.
 
-A trained model is included in `models/`. To retrain it from `isko.csv`:
-
-```bash
-python train_ml_model.py
-```
-
-`isko.csv` is synthetic and is produced by `generate_dataset.py` (seeded, so it is reproducible). A student is labeled qualified only when they pass every eligibility rule and their weighted rubric score, plus random reviewer variation, reaches the cutoff that qualifies about half of eligible students. The MSWDO poverty flag is calculated with the same formula the app uses. See the docstring in `generate_dataset.py` for details. To regenerate the data and retrain:
+A trained model is included in `ml/models/`. To retrain it from `ml/data/isko.csv`:
 
 ```bash
-python generate_dataset.py
-python train_ml_model.py
+python ml/train_ml_model.py
 ```
 
-To evaluate the saved model (confusion matrix, accuracy, precision, recall, specificity, F1, ROC-AUC, 5-fold cross-validation and feature importance) on the held-out test rows:
+`isko.csv` is synthetic and was produced by a seeded generator script, `generate_dataset.py` (not currently included in this repository). A student is labeled qualified only when they pass every eligibility rule and their weighted rubric score, plus random reviewer variation, reaches the cutoff that qualifies about half of eligible students. The MSWDO poverty flag is calculated with the same formula the app uses. To evaluate the saved model (confusion matrix, accuracy, precision, recall, specificity, F1, ROC-AUC, 5-fold cross-validation and feature importance) on the held-out test rows:
 
 ```bash
-python evaluate_ml_model.py          # add --quick to skip cross-validation, --open to open the report
+python ml/evaluate_ml_model.py       # add --quick to skip cross-validation, --open to open the report
 ```
 
-The report is written to `reports/model_evaluation/evaluation_report.html` (charts and `metrics.json` are saved alongside it).
+The report is written to `ml/reports/model_evaluation/evaluation_report.html` (charts and `metrics.json` are saved alongside it). Staff can also open it inside the app from **AI Screening → Model report card**.
 
 The model is trained and evaluated only on applicants who pass every eligibility rule, since those are the only applicants it scores. The evaluation report also shows how many qualified applicants appear among the top-ranked 10%, 25% and 50%.
 
-Each application and applicant profile in the desktop UI shows the model's chance of qualifying and why: how much each input (academic average, income, household size, etc.) raised or lowered that chance. The breakdown comes from the Random Forest's own decision paths (`app/services/ml_explainer.py`) and adds up exactly to the predicted percentage. AI results are advisory only.
+Each application and applicant profile in the desktop UI shows the model's chance of qualifying and why: how much each input (academic average, income, household size, etc.) raised or lowered that chance. The breakdown comes from the Random Forest's own decision paths (`backend/services/ml_explainer.py`) and adds up exactly to the predicted percentage. AI results are advisory only.
 
 ## Testing
 
@@ -95,24 +88,36 @@ The other tests connect to the MySQL database configured in `.env` and **create 
 
 ## Repository Structure
 
+The system follows a layered architecture: the frontend talks only to the local API, the API calls services, services hold the business rules and call repositories, and only repositories touch the database.
+
 ```
-app/
-  repositories/      MySQL data access (applicants, applications, interviews, decisions, results)
-  services/          Application rules, machine learning screening, and result storage
-  ui/desktop/        React + TypeScript interface, Tauri window, and the local Python service (bridge_server.py)
-  ui/                Original PyQt6 main window, pages, and forms
-database/            Connection settings (read from .env)
-models/              Saved Random Forest model (versioned)
-tests/               Repository, service, and screening tests
-schema.sql           Database schema
-isko.csv             Synthetic training data
-generate_dataset.py  Generates isko.csv
-train_ml_model.py    Trains the model and saves it with its evaluation metrics
+IskoMatic/
+├── backend/                  Python back end (package: backend)
+│   ├── api/                  Local HTTP API on 127.0.0.1:8765 (bridge_server.py),
+│   │                         staff sign-in (auth_store.py) and Activity Log (activity_store.py)
+│   ├── services/             Business rules: applications, decisions, ML screening,
+│   │                         explanations, ranking, CSV export
+│   ├── repositories/         Data access layer (one repository per table)
+│   └── database/             MySQL connection (settings read from .env)
+├── frontend/                 React + TypeScript + Vite interface, Tauri desktop shell (src-tauri/)
+├── ml/                       Machine learning
+│   ├── data/isko.csv         Synthetic training data
+│   ├── models/               Saved Random Forest model (versioned)
+│   ├── reports/              Evaluation report output (generated, not committed)
+│   ├── train_ml_model.py     Trains and saves the model
+│   └── evaluate_ml_model.py  Writes the evaluation report ("report card")
+├── database/                 schema.sql and the ERD (ERD.mwb)
+├── tests/                    Unit and integration tests (pytest)
+├── docs/                     SRS, final documentation, diagrams, presentation, brochure, launch video
+├── legacy/pyqt/              Retired PyQt6 interface, kept for reference
+├── run.py                    One-command launcher (backend + frontend)
+├── requirements.txt          Python dependencies
+└── .env.example              Database settings template (copy to .env)
 ```
 
 ## Data Privacy
 
-This repository contains no real applicant data. The training set `isko.csv` is synthetic. Local database backups (`backups/`) and `.env` files are excluded from version control so that personal information and credentials are not committed.
+This repository contains no real applicant data. The training set `ml/data/isko.csv` is synthetic. Local database backups (`backups/`) and `.env` files are excluded from version control so that personal information and credentials are not committed.
 
 ## Author
 

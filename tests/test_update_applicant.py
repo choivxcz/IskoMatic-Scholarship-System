@@ -1,7 +1,7 @@
 
 from uuid import uuid4
 
-from app.repositories.applicant_repository import ApplicantRepository
+from backend.repositories.applicant_repository import ApplicantRepository
 
 
 def test_update_applicant():

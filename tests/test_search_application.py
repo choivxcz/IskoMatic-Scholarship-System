@@ -1,5 +1,5 @@
 
-from app.repositories.application_repository import ApplicationRepository
+from backend.repositories.application_repository import ApplicationRepository
 
 
 def test_search_application():

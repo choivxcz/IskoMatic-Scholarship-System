@@ -5,20 +5,20 @@ These tests use the saved model file only. They do not connect to MySQL.
 
 import pytest
 
-from app.services.ml_screening_service import (
+from backend.services.ml_screening_service import (
     MODEL_VERSION,
     NOT_ELIGIBLE,
     evaluate_applicant,
     load_saved_model,
 )
-from app.services.screening_ranking_service import (
+from backend.services.screening_ranking_service import (
     CLOSED,
     NOT_SCREENED,
     RANKED,
     RESCREEN_NEEDED,
     rank_applications,
 )
-from app.services.screening_ranking_service import NOT_ELIGIBLE as RANK_NOT_ELIGIBLE
+from backend.services.screening_ranking_service import NOT_ELIGIBLE as RANK_NOT_ELIGIBLE
 
 ELIGIBLE_APPLICANT = {
     "average": 90,

@@ -34,13 +34,13 @@ backups/
 
 # React/Tauri desktop UI build output
 node_modules/
-app/ui/desktop/dist/
-app/ui/desktop/src-tauri/target/
-app/ui/desktop/src-tauri/gen/
+frontend/dist/
+frontend/src-tauri/target/
+frontend/src-tauri/gen/
 *.tsbuildinfo
 
-# Generated model evaluation reports (python evaluate_ml_model.py)
-reports/
+# Generated model evaluation reports (python ml/evaluate_ml_model.py)
+ml/reports/
 
 # Remotion launch video render output
 docs/video/launch-video/out/

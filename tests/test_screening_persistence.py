@@ -1,5 +1,5 @@
 
-from app.services.screening_persistence_service import (
+from backend.services.screening_persistence_service import (
     ScreeningPersistenceService,
 )
 

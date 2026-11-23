@@ -11,8 +11,8 @@ applicant ID to create a scholarship application.
 
 from uuid import uuid4
 
-from app.repositories.applicant_repository import ApplicantRepository
-from app.repositories.application_repository import ApplicationRepository
+from backend.repositories.applicant_repository import ApplicantRepository
+from backend.repositories.application_repository import ApplicationRepository
 
 
 def test_create_application():

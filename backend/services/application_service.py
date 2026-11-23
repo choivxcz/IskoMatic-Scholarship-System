@@ -1,0 +1,356 @@
+from backend.repositories.applicant_repository import ApplicantRepository
+from backend.repositories.application_repository import ApplicationRepository
+from backend.database.connection import get_connection
+
+
+class ApplicationService:
+    ALLOWED_TRANSITIONS = {
+        "DRAFT": {"SUBMITTED", "FOR_INTERVIEW", "REJECTED", "WITHDRAWN"},
+        "SUBMITTED": {"UNDER_REVIEW", "FOR_INTERVIEW", "REJECTED", "WITHDRAWN"},
+        "UNDER_REVIEW": {
+            "FOR_INTERVIEW", "REJECTED", "WAITLISTED", "WITHDRAWN"
+        },
+        "FOR_INTERVIEW": {"INTERVIEWED", "WITHDRAWN"},
+        "INTERVIEWED": {
+            "RECOMMENDED", "REJECTED", "WAITLISTED", "WITHDRAWN"
+        },
+        "RECOMMENDED": {"APPROVED", "REJECTED", "WAITLISTED"},
+        "WAITLISTED": {"APPROVED", "REJECTED", "WITHDRAWN"},
+        "APPROVED": set(),
+        # A review-stage rejection can be reopened by staff; a rejection recorded
+        # as an official decision cannot (see change_status).
+        "REJECTED": {"UNDER_REVIEW"},
+        "WITHDRAWN": set(),
+    }
+
+    # Stages before the interview, where staff may reject from the Applications page.
+    REVIEW_STAGES = frozenset({"DRAFT", "SUBMITTED", "UNDER_REVIEW"})
+
+    @staticmethod
+    def has_official_decision(application_id):
+        """True when an official decision has been recorded for the application."""
+        connection = get_connection()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT 1 FROM scholarship_decisions WHERE application_id = %s LIMIT 1",
+                    (application_id,),
+                )
+                return cursor.fetchone() is not None
+        finally:
+            connection.close()
+
+    @staticmethod
+    def reopen_blocked_reason(application_id, current_status, new_status):
+        """Why a rejected application may not be reopened, or None if it may."""
+        if (
+            current_status == "REJECTED"
+            and new_status != "REJECTED"
+            and ApplicationService.has_official_decision(application_id)
+        ):
+            return ("This rejection was recorded as an official decision after the "
+                    "interview and is final.")
+        return None
+
+    @staticmethod
+    def edit_blocked_reason(application_id, fields):
+        """Why an application's details may not be edited, or None if they may.
+
+        Once an official decision is recorded, the details it was based on are
+        locked so the record stays consistent with the decision.
+        """
+        if fields and ApplicationService.has_official_decision(application_id):
+            return ("This application has an official decision, so its details "
+                    "are locked and cannot be edited.")
+        return None
+
+    @staticmethod
+    def mswdo_threshold(household, children, seniors, pwds):
+        return (
+            max(15000, 4000 * household)
+            + 2000 * children
+            + 2000 * seniors
+            + 2500 * pwds
+        )
+
+    @staticmethod
+    def register_applicant_with_application(
+        applicant_data, application_data
+    ):
+        applicant_data = dict(applicant_data)
+        application_data = dict(application_data)
+
+        for field in ApplicantRepository.NAME_FIELDS:
+            applicant_data.setdefault(field, None)
+        ApplicantRepository._validate_names(applicant_data)
+
+        for field in (
+            "house_no_street",
+            "barangay",
+            "municipality",
+            "province",
+        ):
+            applicant_data[field] = (
+                ApplicantRepository._validate_required_text(
+                    applicant_data.get(field),
+                    field.replace("_", " ").title(),
+                )
+            )
+
+        applicant_data["birth_date"] = (
+            ApplicantRepository._validate_birth_date(
+                applicant_data.get("birth_date")
+            )
+        )
+        applicant_data["sex"] = ApplicantRepository._validate_sex(
+            applicant_data.get("sex")
+        )
+        applicant_data["email"] = ApplicantRepository._validate_email(
+            applicant_data.get("email")
+        )
+        applicant_data["phone"] = ApplicantRepository._validate_phone(
+            applicant_data.get("phone")
+        )
+        # One email address and one mobile number per applicant.
+        ApplicantRepository.ensure_unique_contact(
+            applicant_data["email"], applicant_data["phone"]
+        )
+
+        # Required application inputs.
+        required = {
+            "scholarship_program",
+            "scholarship_year",
+            "academic_average",
+            "monthly_income",
+            "household",
+            "children_count",
+            "senior_count",
+            "pwd_count",
+            "dependents_count",
+            "solo_parent",
+            "exam_raw_score",
+            "exam_total_items",
+            "four_ps_beneficiary",
+            "spes_beneficiary",
+            "scholars_in_family",
+            "residency",
+            "previous_scholarship",
+            "status",
+            "submitted_at",
+        }
+
+        missing = required - set(application_data)
+        if missing:
+            raise ValueError(
+                "Missing application field(s): "
+                + ", ".join(sorted(missing))
+            )
+
+        household = int(application_data["household"])
+        children = int(application_data["children_count"])
+        seniors = int(application_data["senior_count"])
+        pwds = int(application_data["pwd_count"])
+        dependents = int(application_data["dependents_count"])
+
+        if household < 1:
+            raise ValueError("Household size must be at least 1.")
+
+        if min(children, seniors, pwds, dependents) < 0:
+            raise ValueError("Household counts cannot be negative.")
+
+        if children + seniors + pwds > household:
+            raise ValueError(
+                "Children, seniors, and PWD counts cannot exceed "
+                "household size."
+            )
+
+        application_data["household"] = household
+        application_data["children_count"] = children
+        application_data["senior_count"] = seniors
+        application_data["pwd_count"] = pwds
+        application_data["dependents_count"] = dependents
+
+        threshold = ApplicationService.mswdo_threshold(
+            household, children, seniors, pwds
+        )
+        income = float(application_data["monthly_income"])
+
+        if income < 0:
+            raise ValueError("Monthly income cannot be negative.")
+
+        application_data["mswdo_poverty_eligible"] = (
+            income <= threshold
+        )
+        application_data["dependent"] = dependents > 0
+
+        raw_score = application_data["exam_raw_score"]
+        total_items = application_data["exam_total_items"]
+
+        if raw_score is None or total_items is None:
+            raise ValueError(
+                "Both raw exam score and total exam items are required."
+            )
+
+        try:
+            raw_score = int(raw_score)
+            total_items = int(total_items)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "Exam score and total items must be whole numbers."
+            ) from exc
+
+        if total_items < 1:
+            raise ValueError("Total exam items must be at least 1.")
+
+        if raw_score < 0 or raw_score > total_items:
+            raise ValueError(
+                "Exam score must be between 0 and total exam items."
+            )
+
+        application_data["exam_raw_score"] = raw_score
+        application_data["exam_total_items"] = total_items
+        application_data["exam_score"] = round(
+            raw_score / total_items * 100, 2
+        )
+        application_data["exam_passed"] = (
+            raw_score >= 0.8 * total_items
+        )
+
+        application_data = ApplicationRepository._validate_application(
+            application_data
+        )
+
+        applicant_columns = [
+            "first_name",
+            "middle_name",
+            "last_name",
+            "suffix",
+            "birth_date",
+            "sex",
+            "email",
+            "phone",
+            "house_no_street",
+            "barangay",
+            "municipality",
+            "province",
+        ]
+
+        application_columns = [
+            "scholarship_program",
+            "scholarship_year",
+            "academic_average",
+            "monthly_income",
+            "mswdo_poverty_eligible",
+            "household",
+            "children_count",
+            "senior_count",
+            "pwd_count",
+            "solo_parent",
+            "dependent",
+            "dependents_count",
+            "exam_score",
+            "exam_raw_score",
+            "exam_total_items",
+            "exam_passed",
+            "four_ps_beneficiary",
+            "spes_beneficiary",
+            "scholars_in_family",
+            "residency",
+            "previous_scholarship",
+            "status",
+            "submitted_at",
+        ]
+
+        connection = get_connection()
+
+        try:
+            connection.start_transaction()
+
+            with connection.cursor() as cursor:
+                applicant_sql = (
+                    "INSERT INTO applicants ("
+                    + ", ".join(f"`{c}`" for c in applicant_columns)
+                    + ") VALUES ("
+                    + ", ".join(["%s"] * len(applicant_columns))
+                    + ")"
+                )
+
+                cursor.execute(
+                    applicant_sql,
+                    tuple(
+                        applicant_data.get(c)
+                        for c in applicant_columns
+                    ),
+                )
+                applicant_id = cursor.lastrowid
+
+                columns = ["applicant_id", *application_columns]
+                application_sql = (
+                    "INSERT INTO applications ("
+                    + ", ".join(f"`{c}`" for c in columns)
+                    + ") VALUES ("
+                    + ", ".join(["%s"] * len(columns))
+                    + ")"
+                )
+
+                values = [
+                    applicant_id,
+                    *[
+                        application_data[c]
+                        for c in application_columns
+                    ],
+                ]
+
+                cursor.execute(application_sql, tuple(values))
+                application_id = cursor.lastrowid
+
+            connection.commit()
+            return applicant_id, application_id
+
+        except Exception:
+            connection.rollback()
+            raise
+
+        finally:
+            connection.close()
+
+    @staticmethod
+    def change_status(application_id, new_status):
+        if not isinstance(new_status, str):
+            raise ValueError("New status must be a string.")
+
+        new_status = new_status.strip().upper()
+
+        if new_status not in ApplicationRepository.ALLOWED_STATUSES:
+            raise ValueError(f"Invalid application status: {new_status}")
+
+        application = ApplicationRepository.get_by_id(application_id)
+
+        if application is None:
+            return False
+
+        current_status = application["status"]
+
+        if new_status == current_status:
+            return True
+
+        allowed = ApplicationService.ALLOWED_TRANSITIONS.get(
+            current_status, set()
+        )
+
+        if new_status not in allowed:
+            raise ValueError(
+                f"Cannot change application status from "
+                f"{current_status} to {new_status}."
+            )
+
+        blocked = ApplicationService.reopen_blocked_reason(
+            application_id, current_status, new_status
+        )
+        if blocked:
+            raise ValueError(blocked)
+
+        return ApplicationRepository.update(
+            application_id,
+            status=new_status,
+        )

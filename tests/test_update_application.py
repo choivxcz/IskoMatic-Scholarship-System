@@ -11,8 +11,8 @@ and verifies that the new status was saved.
 
 from uuid import uuid4
 
-from app.repositories.applicant_repository import ApplicantRepository
-from app.repositories.application_repository import ApplicationRepository
+from backend.repositories.applicant_repository import ApplicantRepository
+from backend.repositories.application_repository import ApplicationRepository
 
 
 def test_update_application():
