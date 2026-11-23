@@ -1,4 +1,4 @@
-# Iskolar ng Bayan — React + TypeScript + Tauri desktop UI
+# IskoMatic — React + TypeScript + Tauri desktop UI
 
 This desktop UI lives under `app/ui/desktop/`. It reuses the project's existing Python repositories and services and does not create or migrate database tables. It replaces the former PyQt6 frontend; the Python backend and database scripts are preserved.
 
@@ -59,7 +59,7 @@ Unconnected features are explicitly identified in the UI:
 - Existing interview validation requires FOR_INTERVIEW; it was preserved. Model results add no scheduling restriction. Scheduling from every stage requires a workflow change.
 - Applicant counts cover active records only. Archived totals/history are unavailable. Screening history/counts cover up to 250 loaded saved results, not the entire application population.
 
-Workspace preferences, including compact tables and dark mode, are saved locally on the current device. Validation: npm.cmd run build in this folder; python -m unittest tests.test_desktop_bridge_safety -v at the project root. Five mocked API tests cover decision restrictions, status and registration bypasses, unavailable accounts, and advisory-only screening; they do not write to MySQL. Existing tests include interactive/database-mutating scripts and are not a complete automated suite.
+Workspace preferences, including compact tables and dark mode, are saved locally on the current device. Validation: `npm.cmd run build` in this folder type-checks and builds the UI. The database-free backend tests are listed in the Testing section of the project README. (A mocked bridge test file, `tests/test_desktop_bridge_safety.py`, was referenced here earlier but is not in the repository.) The other existing tests are interactive or write to MySQL and are not a complete automated suite.
 
 Visual and live database workflow verification remains outstanding because this session has no browser/native automation surface. CSS supports 1672/1440/1280 widths with readable scrolling tables and detail panels that move below tables on narrower screens. Exact screenshot parity is not verified. Reference differences include honest unavailable states, existing interview constraints, additional real monthly trends, and unauthenticated decisions being read-only.
 
@@ -93,12 +93,12 @@ After changing launcher Rust code, rebuild/restart with `npm.cmd run tauri dev` 
 
 Verified during the startup repair: local `/api/health` responded successfully and `/api/dashboard` completed a live MySQL read. Frontend production build and all 10 targeted backend regression checks passed.
 
-## Local workspace without login
+## Staff sign-in (current behaviour)
 
-The desktop app opens directly to the workspace. Login, logout and staff session checks are disabled, and the loopback bridge accepts workspace requests without a staff token. Staff setup is not required. Existing audit history remains readable, but new actions are not attributed to staff or written to the staff activity log. Screening uses no staff user ID. Core repositories, services and database schema are unchanged by this login removal. Restart the desktop app/Python bridge after updating.
+A temporary build once opened directly to the workspace without login; that has been reverted. Sign-in is required: every API route except health and the sign-in/sign-up endpoints returns 401 without a valid staff session (bridge API version 10), and every data change is recorded in the Activity Log under the signed-in staff member. Saved screening results do not yet store the staff member who ran them (`screened_by` is empty); the Activity Log entry for each screening records who ran it.
 
 
-## Upstream backend alignment ? 4 November 2026
+## Upstream backend alignment — 4 November 2026
 
 The core application repository and application service match `choivxcz/AI-Assisted-Scholarship-Applicant-Screening-and-Management-System` main. The desktop bridge retains raw exam inputs and dependent counts expected by upstream and handles its registration `(applicant_id, application_id)` return value. The connected MySQL schema must contain upstream columns `dependents_count`, `exam_raw_score`, and `exam_total_items`; no database schema was changed by this update.
 

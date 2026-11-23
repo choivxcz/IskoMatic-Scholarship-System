@@ -80,9 +80,11 @@ class ApplicationService:
         applicant_data = dict(applicant_data)
         application_data = dict(application_data)
 
+        for field in ApplicantRepository.NAME_FIELDS:
+            applicant_data.setdefault(field, None)
+        ApplicantRepository._validate_names(applicant_data)
+
         for field in (
-            "first_name",
-            "last_name",
             "house_no_street",
             "barangay",
             "municipality",
@@ -113,11 +115,6 @@ class ApplicationService:
         ApplicantRepository.ensure_unique_contact(
             applicant_data["email"], applicant_data["phone"]
         )
-
-        for field in ("middle_name", "suffix"):
-            value = applicant_data.get(field)
-            if isinstance(value, str):
-                applicant_data[field] = value.strip() or None
 
         # Required application inputs.
         required = {

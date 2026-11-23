@@ -76,5 +76,5 @@ fn main() {
             }
         })
         .run(tauri::generate_context!())
-        .expect("error while running Iskolar ng Bayan desktop application");
+        .expect("error while running IskoMatic desktop application");
 }

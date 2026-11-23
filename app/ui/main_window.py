@@ -37,7 +37,7 @@ class MainWindow(
         super().__init__()
 
         self.setWindowTitle(
-            "Iskolar ng Bayan | Scholarship Management System"
+            "IskoMatic | Scholarship Management System"
         )
         self.resize(1280, 800)
         self.setMinimumSize(950, 600)

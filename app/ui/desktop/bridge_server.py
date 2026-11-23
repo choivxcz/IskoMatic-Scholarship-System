@@ -1,5 +1,5 @@
 
-"""Loopback-only API bridge for the Iskolar ng Bayan desktop UI.
+"""Loopback-only API bridge for the IskoMatic desktop UI.
 
 This file lives inside app/ui/desktop and deliberately reuses the existing
 repositories and services. It does not create tables or modify backend files.
@@ -393,11 +393,13 @@ def dashboard_data():
         "stats": {
             "applicants": len(applicants),
             "applications": len(applications),
-            "awaitingDecision": sum(
-                1 for interview in interviews
+            # Count applications, not interview rows: one application can have
+            # more than one completed interview.
+            "awaitingDecision": len({
+                interview.get("application_id") for interview in interviews
                 if interview.get("status") == "COMPLETED"
                 and interview.get("application_status") in {"FOR_INTERVIEW", "INTERVIEWED"}
-            ),
+            }),
             "pending": sum(
                 1
                 for application in applications
@@ -416,11 +418,10 @@ def dashboard_data():
                 if str(interview.get("status") or "").upper()
                 in {"SCHEDULED", "RESCHEDULED"}
             ),
-            "approved": sum(
-                1
-                for decision in decisions
-                if str(decision.get("decision") or "").upper() == "APPROVED"
-            ),
+            # Applications whose current status is Approved, so this matches the
+            # status chart and the Applications page. Counting decision rows
+            # double-counts an application with more than one APPROVED decision.
+            "approved": counts.get("APPROVED", 0),
         },
         "statusCounts": counts,
         "recentApplications": latest,
@@ -465,7 +466,7 @@ def application_screening_inputs(app):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "IskolarLocalBridge/2.1"
+    server_version = "IskoMaticLocalBridge/2.1"
 
     def log_message(self, fmt, *args):
         # Keep personal applicant details out of the console log.
@@ -663,7 +664,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/health":
                 return self._send(
                     200,
-                    {"ok": True, "service": "Iskolar local bridge", "api_version": API_VERSION},
+                    {"ok": True, "service": "IskoMatic local bridge", "api_version": API_VERSION},
                 )
 
             if path == "/api/auth/options":
@@ -833,7 +834,7 @@ class Handler(BaseHTTPRequestHandler):
 
             if path == "/api/exports/finalized":
                 # Finalized records only: screened, interviewed and officially decided.
-                # Written to Downloads\Iskolar ng Bayan Exports on this computer. The file
+                # Written to Downloads\IskoMatic Exports on this computer. The file
                 # holds personal data, so each export is logged under the staff member.
                 def export_finalized():
                     rows = finalized_records()
@@ -888,6 +889,16 @@ class Handler(BaseHTTPRequestHandler):
                         404,
                         {"error": "Application not found."},
                     )
+
+                # Batch runs skip applications whose latest result already came from
+                # the same inputs and model; nothing changes, so nothing is logged.
+                # A single "Run screening" (no flag) always runs.
+                if data.get("skip_unchanged") is True:
+                    current = read_screening_service().latest_if_unchanged(
+                        application_id, application_screening_inputs(application)
+                    )
+                    if current:
+                        return self._send(200, {"ok": True, "skipped": True, "result": current})
 
                 def screen():
                     result = read_screening_service().screen_application(
@@ -1114,6 +1125,16 @@ class Handler(BaseHTTPRequestHandler):
                             f"{current_status} to {requested_status}."
                         )
 
+                # Check the household counts together with the saved record, so an
+                # edit that changes only one count cannot make them inconsistent.
+                household_keys = ("household", "children_count", "senior_count", "pwd_count", "dependents_count")
+                if any(key in fields for key in household_keys):
+                    saved = ApplicationRepository.get_by_id(application_id) or {}
+                    ApplicationRepository._validate_application({
+                        **{key: saved.get(key) or 0 for key in household_keys},
+                        **{key: fields[key] for key in household_keys if key in fields},
+                    })
+
                 # Recalculate poverty eligibility if related fields change.
                 if any(
                     key in fields
@@ -1250,7 +1271,7 @@ def main():
         print(f"Could not start local bridge on {HOST}:{PORT}: {exc}")
         raise SystemExit(1)
 
-    print(f"Iskolar local bridge running at http://{HOST}:{PORT}")
+    print(f"IskoMatic local bridge running at http://{HOST}:{PORT}")
     print("Press Ctrl+C to stop it.")
 
     try:

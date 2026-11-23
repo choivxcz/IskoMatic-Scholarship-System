@@ -1,8 +1,8 @@
 [package]
 name = "iskolar-desktop"
 version = "1.0.0"
-description = "Iskolar ng Bayan desktop application"
-authors = ["Iskolar ng Bayan"]
+description = "IskoMatic desktop application"
+authors = ["IskoMatic"]
 edition = "2021"
 
 [build-dependencies]

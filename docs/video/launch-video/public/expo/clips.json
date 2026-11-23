@@ -1,0 +1,89 @@
+{
+  "login": {
+    "seconds": 10.81,
+    "marks": {
+      "start": 0.0,
+      "signed_in": 5.72,
+      "end": 10.81
+    }
+  },
+  "reg_error_focus": {
+    "text": "Number of dependents cannot exceed household size.",
+    "x": 0.497,
+    "y": 0.597
+  },
+  "reg_toast": {
+    "text": "Registered applicant #59 and application #46.",
+    "x": 0.863,
+    "y": 0.948
+  },
+  "reg_form": {
+    "seconds": 26.54,
+    "marks": {
+      "start": 0.0,
+      "form_end": 26.54
+    }
+  },
+  "reg_error": {
+    "seconds": 7.65,
+    "marks": {
+      "form_end": 0.0,
+      "error_shown": 2.18,
+      "error_end": 7.65
+    }
+  },
+  "reg_fixed": {
+    "seconds": 9.93,
+    "marks": {
+      "error_end": 0.0,
+      "toast": 5.39,
+      "end": 9.93
+    }
+  },
+  "batch_toast": {
+    "text": "Batch finished: 1 screened, 15 already up to date. Review results in the screening table.",
+    "x": 0.789,
+    "y": 0.948
+  },
+  "batch": {
+    "seconds": 11.12,
+    "marks": {
+      "start": 0.0,
+      "modal": 2.03,
+      "toast": 7.91,
+      "end": 11.12
+    }
+  },
+  "explain_focus": {
+    "x": 0.878,
+    "y": 0.677
+  },
+  "explain": {
+    "seconds": 9.64,
+    "marks": {
+      "start": 0.0,
+      "analysis_tab": 4.77,
+      "explained": 5.58,
+      "end": 9.64
+    }
+  },
+  "interview": {
+    "application_id": 46,
+    "interview_id": 16
+  },
+  "decision_toast": {
+    "text": "Decision recorded: Approved. Logged under Karl Sebastian Cuerdo.",
+    "x": 0.823,
+    "y": 0.948
+  },
+  "decision": {
+    "seconds": 18.74,
+    "marks": {
+      "start": 0.0,
+      "modal": 1.87,
+      "toast": 10.84,
+      "activity": 14.8,
+      "end": 18.74
+    }
+  }
+}

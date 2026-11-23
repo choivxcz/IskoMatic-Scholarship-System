@@ -1,3 +1,5 @@
+from datetime import date, datetime
+
 from database.connection import get_connection
 
 
@@ -149,7 +151,22 @@ class InterviewRepository:
 
         Returns:
             The newly created interview_id (int).
+
+        Raises:
+            ValueError: If the date is invalid or before today, or the
+                application already has an interview that is still scheduled.
         """
+        if isinstance(scheduled_at, str):
+            try:
+                scheduled_at = datetime.fromisoformat(scheduled_at.strip())
+            except ValueError as exc:
+                raise ValueError("Interview date and time are not valid.") from exc
+        if not isinstance(scheduled_at, datetime):
+            raise ValueError("Interview date and time are required.")
+        # Today is allowed so a same-day (walk-in) interview can still be recorded.
+        if scheduled_at.date() < date.today():
+            raise ValueError("Interview date cannot be in the past.")
+
         query = """
             INSERT INTO interviews (application_id, scheduled_at, location, remarks, status)
             VALUES (%s, %s, %s, %s, 'SCHEDULED')
@@ -157,6 +174,17 @@ class InterviewRepository:
         connection = get_connection()
         try:
             with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT scheduled_at FROM interviews WHERE application_id = %s "
+                    "AND status IN ('SCHEDULED', 'RESCHEDULED') LIMIT 1",
+                    (application_id,),
+                )
+                open_interview = cursor.fetchone()
+                if open_interview:
+                    raise ValueError(
+                        "This application already has an interview scheduled for "
+                        f"{open_interview[0]:%d %b %Y %I:%M %p}. Record its result first."
+                    )
                 cursor.execute(query, (application_id, scheduled_at, location, remarks))
                 interview_id = cursor.lastrowid
             connection.commit()

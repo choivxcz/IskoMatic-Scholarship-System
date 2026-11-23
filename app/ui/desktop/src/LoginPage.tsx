@@ -124,8 +124,8 @@ export function AuthBrand() {
     <div className="auth-brand-glow" aria-hidden="true" />
     <div className="auth-brand-inner">
       <OfficialLogos />
-      <div className="brand-name">iskolar.</div>
-      <small>NG BAYAN &middot; SCHOLARSHIP MANAGEMENT</small>
+      <div className="brand-name">IskoMatic</div>
+      <small>SCHOLARSHIP MANAGEMENT &middot; SANTA CRUZ</small>
       <p className="auth-office">LOCAL YOUTH DEVELOPMENT OFFICE</p>
       <h1>Fair opportunities.<br />A brighter Santa Cruz.</h1>
       <p className="auth-brand-lede">An organized, transparent workspace for scholarship applications, thoughtful review, and accountable decisions for the youth of Santa Cruz.</p>
@@ -157,7 +157,7 @@ export default function AuthScreen({ view, onView, onLogin, notice, leaving }: S
     const url = new URL(window.location.href);
     url.searchParams.set("view", view);
     window.history.replaceState(null, "", url);
-    document.title = view === "login" ? "Sign in | Iskolar ng Bayan" : "Request access | Iskolar ng Bayan";
+    document.title = view === "login" ? "Sign in | IskoMatic" : "Request access | IskoMatic";
   }, [view]);
 
   // Cursor parallax on the town hall photo and the soft light that follows the pointer.

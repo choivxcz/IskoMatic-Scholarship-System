@@ -33,6 +33,46 @@ class ApplicantRepository:
             raise ValueError(f"{field_name} is required.")
         return value.strip()
 
+    # field: (label, required, max length — matches the column size)
+    NAME_FIELDS = {
+        "first_name": ("First name", True, 100),
+        "middle_name": ("Middle name", False, 100),
+        "last_name": ("Last name", True, 100),
+        "suffix": ("Suffix", False, 20),
+    }
+
+    @staticmethod
+    def _validate_name(value, field_name, required=True, max_length=100):
+        """Letters (including ñ and accents), spaces, periods, hyphens and
+        apostrophes only, e.g. "Ma. Clara", "Dela Cruz-Santos", "O'Neil", "Jr."."""
+        if value is None or (isinstance(value, str) and not value.strip()):
+            if required:
+                raise ValueError(f"{field_name} is required.")
+            return None
+        if not isinstance(value, str):
+            raise ValueError(f"{field_name} must be text.")
+        text = " ".join(value.split())
+        if len(text) > max_length:
+            raise ValueError(f"{field_name} must be at most {max_length} characters.")
+        if not any(ch.isalpha() for ch in text) or not all(
+            ch.isalpha() or ch in " .'-" for ch in text
+        ):
+            raise ValueError(
+                f"{field_name} may contain only letters, spaces, periods, "
+                "hyphens and apostrophes."
+            )
+        return text
+
+    @staticmethod
+    def _validate_names(data):
+        """Validate whichever name fields are present in `data` (in place)."""
+        for field, (label, required, max_length) in ApplicantRepository.NAME_FIELDS.items():
+            if field in data:
+                data[field] = ApplicantRepository._validate_name(
+                    data[field], label, required, max_length
+                )
+        return data
+
     @staticmethod
     def _validate_sex(sex):
         if not isinstance(sex, str) or not sex.strip():
@@ -165,12 +205,14 @@ class ApplicantRepository:
         municipality="Santa Cruz",
         province="Laguna",
     ):
-        first_name = ApplicantRepository._validate_required_text(
-            first_name, "First name"
-        )
-        last_name = ApplicantRepository._validate_required_text(
-            last_name, "Last name"
-        )
+        names = ApplicantRepository._validate_names({
+            "first_name": first_name,
+            "middle_name": middle_name,
+            "last_name": last_name,
+            "suffix": suffix,
+        })
+        first_name, middle_name = names["first_name"], names["middle_name"]
+        last_name, suffix = names["last_name"], names["suffix"]
         barangay = ApplicantRepository._validate_required_text(
             barangay, "Barangay"
         )
@@ -209,9 +251,9 @@ class ApplicantRepository:
 
         values = (
             first_name,
-            middle_name.strip() if middle_name else None,
+            middle_name,
             last_name,
-            suffix.strip() if suffix else None,
+            suffix,
             birth_date,
             sex,
             email,
@@ -384,9 +426,9 @@ class ApplicantRepository:
 
         fields = dict(fields)
 
+        ApplicantRepository._validate_names(fields)
+
         required_text_fields = {
-            "first_name": "First name",
-            "last_name": "Last name",
             "barangay": "Barangay",
             "municipality": "Municipality",
             "province": "Province",
@@ -420,10 +462,6 @@ class ApplicantRepository:
         ApplicantRepository.ensure_unique_contact(
             fields.get("email"), fields.get("phone"), exclude_applicant_id=applicant_id
         )
-
-        for field in ("middle_name", "suffix"):
-            if field in fields and isinstance(fields[field], str):
-                fields[field] = fields[field].strip() or None
 
         set_clause = ", ".join(f"`{field}` = %s" for field in fields)
         values = list(fields.values()) + [applicant_id]

@@ -80,7 +80,7 @@ function Root() {
     const url = new URL(window.location.href);
     url.searchParams.delete("view");
     window.history.replaceState(null, "", url);
-    document.title = "Iskolar ng Bayan | Scholarship Management";
+    document.title = "IskoMatic | Scholarship Management";
     setUser(response.user);
     setLeaving(false);
   }, []);
@@ -93,7 +93,7 @@ function Root() {
     setUser(null);
   }, []);
 
-  if (checking) return <div className="app-splash" role="status" aria-label="Restoring your session"><OfficialLogos /><strong>iskolar.</strong><span className="app-splash-bar"><i /></span></div>;
+  if (checking) return <div className="app-splash" role="status" aria-label="Restoring your session"><OfficialLogos /><strong>IskoMatic</strong><span className="app-splash-bar"><i /></span></div>;
   if (user) return <div className="workspace-enter"><App user={user} onLogout={logout} /></div>;
   return <AuthScreen view={view} onView={next => { setNotice(""); setView(next); }} onLogin={login} notice={notice} leaving={leaving} />;
 }

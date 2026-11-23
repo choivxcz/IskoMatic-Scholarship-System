@@ -6,7 +6,7 @@ decision (Approved, Waitlisted or Rejected) was recorded and is its current
 status. Applications still in progress are not exported.
 
 The CSV is written by the local bridge to a fixed folder on this computer,
-``Downloads\\Iskolar ng Bayan Exports``, so staff always know where it is and
+``Downloads\\IskoMatic Exports``, so staff always know where it is and
 the app can open the file or its folder afterwards.
 """
 
@@ -22,7 +22,7 @@ from pathlib import Path
 from database.connection import get_connection
 
 FINAL_DECISIONS = ("APPROVED", "WAITLISTED", "REJECTED")
-EXPORT_FOLDER_NAME = "Iskolar ng Bayan Exports"
+EXPORT_FOLDER_NAME = "IskoMatic Exports"
 FILENAME_PREFIX = "finalized-scholarship-records"
 # Only files this module creates may be opened or revealed.
 _FILENAME_RE = re.compile(rf"^{FILENAME_PREFIX}-\d{{4}}-\d{{2}}-\d{{2}}_\d{{6}}(-\d+)?\.csv$")

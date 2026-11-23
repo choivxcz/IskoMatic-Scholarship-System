@@ -1,11 +1,14 @@
 {
   "name": "iskolar-ng-bayan-launch-video",
   "private": true,
-  "description": "25-second vertical launch video for Iskolar ng Bayan (Remotion)",
+  "description": "IskoMatic videos (Remotion): 25-second vertical launch video and the landscape expo cut with real system footage",
   "scripts": {
     "dev": "remotion studio",
-    "render": "remotion render LaunchVideo out/iskolar-ng-bayan-launch.mp4",
-    "typecheck": "tsc"
+    "render": "remotion render LaunchVideo out/iskomatic-launch.mp4",
+    "typecheck": "tsc",
+    "audio": "python scripts/make_audio.py all",
+    "footage": "python scripts/record_footage.py",
+    "render:expo": "remotion render ExpoVideo out/iskomatic-expo.mp4"
   },
   "dependencies": {
     "@remotion/cli": "4.0.543",

@@ -5,7 +5,7 @@ from app.ui.main_window import MainWindow
 
 def main():
     app = QApplication(sys.argv)
-    app.setApplicationName("Iskolar ng Bayan")
+    app.setApplicationName("IskoMatic")
     app.setStyle("Fusion")
 
     window = MainWindow()

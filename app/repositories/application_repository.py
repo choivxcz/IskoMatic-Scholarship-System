@@ -153,6 +153,17 @@ class ApplicationRepository:
                     "household size."
                 )
 
+        # Same rule the original registration form applied; it was only
+        # checked in that form, so other clients could skip it.
+        if (
+            "household" in data
+            and "dependents_count" in data
+            and data["dependents_count"] > data["household"]
+        ):
+            raise ValueError(
+                "Number of dependents cannot exceed household size."
+            )
+
         if "status" in data:
             status = str(data["status"]).strip().upper()
 

@@ -53,7 +53,7 @@ export async function authRequest<T = any>(path: string, body?: unknown): Promis
       body: JSON.stringify(body),
     });
   } catch {
-    throw new Error("Cannot reach the Iskolar backend. Make sure the Python bridge is running, then try again.");
+    throw new Error("Cannot reach the IskoMatic backend. Make sure the Python bridge is running, then try again.");
   }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || `Request failed (${response.status}).`);

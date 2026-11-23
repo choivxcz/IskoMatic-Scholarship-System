@@ -6,5 +6,5 @@ if (-not (Test-Path (Join-Path $desktop 'node_modules'))) {
   Write-Host 'Installing frontend packages...' -ForegroundColor Cyan
   npm install
 }
-Write-Host 'Starting the Iskolar desktop UI...' -ForegroundColor Cyan
+Write-Host 'Starting the IskoMatic desktop UI...' -ForegroundColor Cyan
 npm run tauri dev

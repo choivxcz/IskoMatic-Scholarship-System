@@ -144,7 +144,7 @@ const REVIEW_STAGES = new Set(["DRAFT", "SUBMITTED", "UNDER_REVIEW"]);
 const DECISION_ROLES = new Set(["ADMIN", "LYDO_OFFICIAL"]);
 
 // Result of a finalized-records export. The bridge writes the CSV to
-// Downloads\Iskolar ng Bayan Exports on this computer and can open it afterwards.
+// Downloads\IskoMatic Exports on this computer and can open it afterwards.
 type ExportNotice = { count: number; filename: string; path: string; folder: string };
 
 const registrationFields: Field[] = [
@@ -409,7 +409,7 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
   const showError = (e: unknown) => setToast(e instanceof Error ? e.message : "The operation could not be completed.");
 
   // Exports only finalized records: screened, interviewed and given an official decision.
-  // The bridge writes the CSV to Downloads\Iskolar ng Bayan Exports and returns where it is.
+  // The bridge writes the CSV to Downloads\IskoMatic Exports and returns where it is.
   async function exportFinalized() {
     setExporting(true);
     try {
@@ -630,12 +630,16 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
     try {
       if (form.mode === "batchScreen") {
         setScreeningFailures({});
+        let screened = 0, unchanged = 0, failed = 0;
         for (const option of applicationOptions) {
-          try { await post("/screening", { application_id: Number(option.value) }); }
-          catch (e) { const message = e instanceof Error ? e.message : "Screening failed"; setScreeningFailures(previous => ({ ...previous, [option.value]: message })); }
+          try {
+            const response = await post("/screening", { application_id: Number(option.value), skip_unchanged: true });
+            if (response?.skipped) unchanged += 1; else screened += 1;
+          }
+          catch (e) { failed += 1; const message = e instanceof Error ? e.message : "Screening failed"; setScreeningFailures(previous => ({ ...previous, [option.value]: message })); }
         }
-        setLatestBatch({ at: new Date().toISOString(), count: applicationOptions.length });
-        setToast("Batch finished. Review results in the screening table.");
+        setLatestBatch({ at: new Date().toISOString(), count: screened });
+        setToast(`Batch finished: ${screened} screened, ${unchanged} already up to date${failed ? `, ${failed} failed` : ""}. Review results in the screening table.`);
       } else if (form.mode === "register") {
         const applicantKeys = [
           "first_name", "middle_name", "last_name", "suffix", "birth_date", "sex",
@@ -738,7 +742,7 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
   return (
     <div className={`app-shell ${page === "Overview" || page === "Applicants" || page === "Applications" || page === "AI Screening" || page === "Interviews" ? "overview-shell" : ""} ${page === "Applicants" || page === "Applications" || page === "AI Screening" || page === "Interviews" ? "applicants-shell" : ""} ${page === "Interviews" || page === "Overview" || page === "AI Screening" ? "interviews-shell" : ""} ${page === "Overview" ? "reference-overview-shell" : ""} ${page === "AI Screening" ? "screening-reference-shell" : ""} ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${signingOut ? "is-signing-out" : ""}`}>
       <aside className={`sidebar ${mobileNav ? "sidebar-open" : ""}`}>
-        <div className="brand"><OfficialLogos /><div className="brand-name">iskolar.</div><div className="brand-sub">NG BAYAN / SANTA CRUZ<br />Local Youth Development Office</div></div>
+        <div className="brand"><OfficialLogos /><div className="brand-name">IskoMatic</div><div className="brand-sub">SANTA CRUZ, LAGUNA<br />Local Youth Development Office</div></div>
         <div className="sidebar-divider" />
         {(["WORKSPACE", "MANAGEMENT"] as const).map(group => (
           <div className="nav-group" key={group}>
@@ -806,7 +810,7 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
             actions={<>
               {page === "Applicants" && <button className="primary-button" onClick={openRegistration}><Plus size={17} /> Register Applicant</button>}
               {page === "Applications" && <button className="primary-button" onClick={openRegistration}><Plus size={17} /> New Application</button>}
-              {page === "AI Screening" && <button className="primary-button" disabled={loading || !applicationOptions.length || formBusy} onClick={() => { setForm({ mode: "batchScreen", title: "Run batch AI screening", subtitle: `Run and persist advisory screening for ${applicationOptions.length} existing applications? Official statuses remain unchanged. Failures will appear in the screening table.`, fields: [], initial: {} }); }}><Play size={17} />Run AI Screening</button>}
+              {page === "AI Screening" && <button className="primary-button" disabled={loading || !applicationOptions.length || formBusy} onClick={() => { setForm({ mode: "batchScreen", title: "Run batch AI screening", subtitle: `Run and persist advisory screening for ${applicationOptions.length} existing applications? Applications whose details and model have not changed since their last screening are skipped. Official statuses remain unchanged. Failures will appear in the screening table.`, fields: [], initial: {} }); }}><Play size={17} />Run AI Screening</button>}
               {page === "Interviews" && <button className="primary-button" disabled={loading || !rows.some(row => row.awaiting_schedule)} onClick={() => openSchedule()}><CalendarDays size={21} />Schedule Interview</button>}
               {page === "Decisions" && <button className="button-secondary" disabled={loading || exporting} title="Export applicants who completed screening, the interview and an official decision" onClick={exportFinalized}><Download size={17} />{exporting ? "Exporting…" : "Export finalized (CSV)"}</button>}
               {page === "Decisions" && <button className="primary-button" disabled={loading || !DECISION_ROLES.has(user.role)} title={DECISION_ROLES.has(user.role) ? "Record an official decision" : "Only LYDO Officials and Administrators can record decisions"} onClick={() => openDecision()}><Plus size={17} /> Record decision</button>}
@@ -863,7 +867,7 @@ export default function App({ user, onLogout }: { user: StaffUser; onLogout: () 
 
           </div>
           <footer className="footer">
-            <span>© {new Date().getFullYear()} Iskolar ng Bayan</span>
+            <span>© {new Date().getFullYear()} IskoMatic</span>
             <span><span className="footer-dot" /> Local desktop workspace <span className="footer-sep">·</span> Scholarship Applicant Screening & Management</span>
           </footer>
         </div>
@@ -967,7 +971,7 @@ function DataPage(props: {
   };
 
   const totalApplications = new Set(sourceRows.map(r => r.application_id).filter(Boolean)).size;
-  const metrics = page === "Applicants" ? [["Directory records", sourceRows.length], ["Active profiles", sourceRows.length], ["Barangays", options("barangay").length], ["Archive history", "Unavailable"]] : page === "AI Screening" ? [["Screened applications", totalApplications], ["Saved results", sourceRows.length], ["Model authority", "Advisory"], ["Review notes", "Not connected"]] : page === "Interviews" ? [["Awaiting schedule", sourceRows.filter(r => r.awaiting_schedule).length], ["Scheduled", sourceRows.filter(r => r.status === "SCHEDULED").length], ["Completed", sourceRows.filter(r => r.status === "COMPLETED").length], ["Rescheduling", "Not connected"]] : page === "Decisions" ? [["Recorded decisions", sourceRows.length], ["Approved", sourceRows.filter(r => r.decision === "APPROVED").length], ["Rejected", sourceRows.filter(r => r.decision === "REJECTED").length], ["Authorization", "Not connected"]] : [["All applications", sourceRows.length], ["Under review", sourceRows.filter(r => r.status === "UNDER_REVIEW").length], ["For interview", sourceRows.filter(r => r.status === "FOR_INTERVIEW").length], ["Final decisions", sourceRows.filter(r => ["APPROVED", "REJECTED"].includes(r.status)).length]];
+  const metrics = page === "Applicants" ? [["Directory records", sourceRows.length], ["Active profiles", sourceRows.length], ["Barangays", options("barangay").length], ["Archive history", "Unavailable"]] : page === "AI Screening" ? [["Screened applications", totalApplications], ["Saved results", sourceRows.length], ["Model authority", "Advisory"], ["Review notes", "Not connected"]] : page === "Interviews" ? [["Awaiting schedule", sourceRows.filter(r => r.awaiting_schedule).length], ["Scheduled", sourceRows.filter(r => r.status === "SCHEDULED").length], ["Completed", sourceRows.filter(r => r.status === "COMPLETED").length], ["Rescheduling", "Not connected"]] : page === "Decisions" ? [["Recorded decisions", sourceRows.length], ["Approved", sourceRows.filter(r => r.decision === "APPROVED").length], ["Rejected", sourceRows.filter(r => r.decision === "REJECTED").length], ["Authorization", "Officials only"]] : [["All applications", sourceRows.length], ["Under review", sourceRows.filter(r => r.status === "UNDER_REVIEW").length], ["For interview", sourceRows.filter(r => r.status === "FOR_INTERVIEW").length], ["Final decisions", sourceRows.filter(r => ["APPROVED", "REJECTED"].includes(r.status)).length]];
 
   const cols = columns[page] || [];
   const intro = page === "AI Screening"
@@ -987,7 +991,7 @@ function DataPage(props: {
       </div>
 
       <div className="filter-bar"><select aria-label="Filter records" value={filter} onChange={e => setFilter(e.target.value)}><option value="">{page === "Applicants" ? "All barangays" : "All statuses / recommendations"}</option>{options(filterKey).map(v => <option key={v} value={v}>{nice(v)}</option>)}</select>{page !== "Applicants" && <><select aria-label="Program" value={program} onChange={e => setProgram(e.target.value)}><option value="">All programs</option>{options("scholarship_program").map(v => <option key={v}>{v}</option>)}</select><select aria-label="Scholarship year" value={year} onChange={e => setYear(e.target.value)}><option value="">All years</option>{options("scholarship_year").map(v => <option key={v}>{v}</option>)}</select></>}</div>
-      {page === "Decisions" && <div className="notice"><ShieldCheck size={17} />Official decisions are read-only. Verified staff authorization is not connected.</div>}
+      {page === "Decisions" && <div className="notice"><ShieldCheck size={17} />Only LYDO Officials and Administrators can record official decisions, and each one is logged under their name.</div>}
       {page === "AI Screening" && <div className="notice"><Sparkles size={17} /><span>Run a screening to evaluate an existing application with the saved model. Results are persisted and remain advisory, not a final award/rejection.</span></div>}
 
       {page === "Interviews" && <div className="notice">Existing workflow requires the For Interview stage before scheduling. Rescheduling and panel conflict validation are not connected.</div>}

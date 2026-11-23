@@ -78,6 +78,24 @@ class ScreeningPersistenceService:
             canonical_json.encode("utf-8")
         ).hexdigest()
 
+    def latest_if_unchanged(self, application_id, applicant_data):
+        """The latest saved result for the application if it was produced from
+        these exact inputs by the current model, otherwise None.
+
+        Lets a batch run skip applications whose result is already current
+        instead of saving an identical new result every time.
+        """
+        latest = ScreeningResultRepository.get_latest_for_applications(
+            [application_id]
+        ).get(int(application_id))
+
+        if latest and latest.get("screening_input_fingerprint") == (
+            self.create_input_fingerprint(applicant_data)
+        ):
+            return latest
+
+        return None
+
     def screen_application(
         self,
         application_id,

@@ -42,11 +42,11 @@ export const EndCard: React.FC<{duration: number}> = ({duration}) => {
       </div>
       <div style={{position: 'absolute', top: SEALS_CY + 150, left: 60, right: 60, textAlign: 'center', opacity: word, transform: `translateY(${(1 - word) * 40}px)`}}>
         <div style={{fontSize: 168, fontWeight: 800, letterSpacing: '-0.05em', lineHeight: 1}}>
-          iskolar<span style={{color: C.blue}}>.</span>
+          Isko<span style={{color: C.blue}}>Matic</span>
         </div>
       </div>
       <div style={{position: 'absolute', top: SEALS_CY + 350, left: 60, right: 60, textAlign: 'center', opacity: sub, transform: `translateY(${(1 - sub) * 30}px)`}}>
-        <div style={{fontSize: 32, fontWeight: 700, letterSpacing: '0.14em', color: C.muted}}>NG BAYAN · SCHOLARSHIP MANAGEMENT</div>
+        <div style={{fontSize: 32, fontWeight: 700, letterSpacing: '0.14em', color: C.muted}}>SCHOLARSHIP MANAGEMENT</div>
         <div style={{fontSize: 40, fontWeight: 600, marginTop: 56, color: C.ink}}>Local Youth Development Office</div>
         <div style={{fontSize: 36, marginTop: 8, color: C.muted}}>Santa Cruz, Laguna</div>
       </div>

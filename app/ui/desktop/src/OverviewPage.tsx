@@ -38,7 +38,7 @@ export default function OverviewPage({ data, loading, onOpen }: { data: Row | nu
     { label: "Total applicants", value: stats.applicants, note: "Registered applicant profiles", icon: Users, tone: "blue", page: "Applicants" as Page },
     { label: "Applications", value: stats.applications, note: "Scholarship submissions", icon: FileText, tone: "purple", page: "Applications" as Page },
     { label: "For official review", value: stats.pending, note: "Applications requiring attention", icon: Clock3, tone: "orange", page: "Applications" as Page },
-    { label: "Approved scholars", value: stats.approved, note: "Recorded official decisions", icon: Award, tone: "green", page: "Decisions" as Page },
+    { label: "Approved scholars", value: stats.approved, note: "Applications officially approved", icon: Award, tone: "green", page: "Decisions" as Page },
   ];
   const tasks = [
     { label: "Review applications", note: "Submitted and pending records", value: stats.pending, icon: ClipboardCheck, tone: "orange", page: "Applications" as Page },
